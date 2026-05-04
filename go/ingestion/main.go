@@ -3,21 +3,16 @@ package main
 import (
 	"context"
 	"database/sql"
-	"log/slog"
 	"net/http"
 	"os"
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
 	util "github.com/mehrnazm/webhookx/go/util"
-	"github.com/redis/go-redis/v9"
 )
 
-var logger *slog.Logger
-var redisClient *redis.Client
-
 func main() {
-	logger = util.SetupLogger("ingestion")
+	logger := util.SetupLogger("ingestion")
 	logger.Info("starting up ingestion service ...")
 
 	// Read environment
@@ -43,7 +38,7 @@ func main() {
 	logger.Info("✓ Connected to PostgreSQL")
 
 	// Redis client
-	redisClient, err = util.InitRedisClient()
+	redisClient, err := util.InitRedisClient()
 	if err != nil {
 		logger.Error("failed to initialize redis client", "err", err)
 		os.Exit(1)
@@ -58,7 +53,8 @@ func main() {
 
 	// HTTP server
 	router := mux.NewRouter()
-	router.HandleFunc("/drop/{url_slug}", PublicDropPost).Methods("POST", "GET", "PUT", "PATCH", "DELETE")
+	handler := NewHandler(redisClient, logger)
+	router.HandleFunc("/drop/{url_slug}", handler.PublicDropPost).Methods("POST", "GET", "PUT", "PATCH", "DELETE")
 	router.HandleFunc("/healthz", Health)
 
 	logger.Info("✓ Listening on :" + port)

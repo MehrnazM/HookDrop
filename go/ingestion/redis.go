@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -21,12 +22,12 @@ type WebhookMessage struct {
 }
 
 // EnqueueWebhook publishes a webhook message to Redis Streams
-func EnqueueWebhook(ctx context.Context, rc *redis.Client, msg WebhookMessage, requestID string) error {
+func EnqueueWebhook(ctx context.Context, rc RedisClient, msg WebhookMessage, logger *slog.Logger) error {
 	// Marshal to JSON
-	redisLogger := logger.With("requestID", requestID)
+
 	payload, err := json.Marshal(msg)
 	if err != nil {
-		redisLogger.Error("failed to marshal webhook message", "err", err)
+		logger.Error("failed to marshal webhook message", "err", err)
 		return err
 	}
 
@@ -39,10 +40,10 @@ func EnqueueWebhook(ctx context.Context, rc *redis.Client, msg WebhookMessage, r
 		Values: []interface{}{"payload", string(payload)},
 	}).Result()
 	if err != nil {
-		redisLogger.Error("failed to enqueue webhook to redis", "err", err, "drop_slug", msg.DropSlug)
+		logger.Error("failed to enqueue webhook to redis", "err", err, "drop_slug", msg.DropSlug)
 		return err
 	}
 
-	redisLogger.Debug("webhook enqueued", "drop_slug", msg.DropSlug)
+	logger.Debug("webhook enqueued", "drop_slug", msg.DropSlug)
 	return nil
 }
