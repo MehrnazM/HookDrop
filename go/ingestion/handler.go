@@ -112,15 +112,19 @@ func (h *Handler) PublicDropPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build webhook message
-	msg := WebhookMessage{
-		DropSlug:    dropSlug,
-		Method:      r.Method,
-		Path:        r.RequestURI,
-		Headers:     headers,
-		QueryParams: queryParams,
-		Body:        bodyJSON,
-		IPAddress:   remoteIP,
-		ReceivedAt:  time.Now().UTC().Format(time.RFC3339),
+	msg := util.WebhookMessage{
+		DropSlug: dropSlug,
+		Metadata: util.WebhookMessageMetadata{
+			Method:     r.Method,
+			Path:       r.RequestURI,
+			IPAddress:  remoteIP,
+			ReceivedAt: time.Now().UTC(),
+		},
+		Payload: util.WebhookMessagePayload{
+			Headers:     headers,
+			QueryParams: queryParams,
+			Body:        bodyJSON,
+		},
 	}
 
 	reqLogger.Debug("webhook message to publish to redis", "msg", fmt.Sprintf("%+v", msg))

@@ -3,101 +3,127 @@ package main
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
-	"github.com/redis/go-redis/v9"
+	util "github.com/mehrnazm/webhookx/go/util"
+)
+
+const (
+	readTimout      = 15 * time.Second
+	writeTimeout    = 0
+	idleTimeout     = 20 * time.Second
+	shutdownTimeout = 20 * time.Second
 )
 
 func main() {
+	logger := util.SetupLogger("processor")
+	logger.Info("starting up processor service ...")
 	// Read environment
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8082"
+	ctx, cancelBackgroundCtx := context.WithCancel(context.Background())
+	defer cancelBackgroundCtx()
+
+	port := util.GetStringEnv("PORT", "8081")
+	dbURL, err := util.MustGetString("DATABASE_URL")
+	if err != nil {
+		logger.Error("DATABASE_URL missing")
+		os.Exit(1)
 	}
-	dbURL := os.Getenv("DATABASE_URL")
-	redisURL := os.Getenv("REDIS_URL")
 
-	log.Printf("=== Processor Service Starting ===")
-	log.Printf("PORT: %s", port)
-	log.Printf("DATABASE_URL: %s", maskURL(dbURL))
-	log.Printf("REDIS_URL: %s", maskURL(redisURL))
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Test database connection
+	// Database connection
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		log.Fatalf("Failed to open database: %v", err)
+		logger.Error("Failed to open database", "err", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
-	if err := db.PingContext(ctx); err != nil {
-		log.Fatalf("Failed to ping database: %v", err)
+	if err := db.Ping(); err != nil {
+		logger.Error("Failed to ping database", "err", err)
+		os.Exit(1)
 	}
-	log.Println("✓ Connected to PostgreSQL")
+	logger.Info("✓ Connected to PostgreSQL")
 
-	// Test Redis connection
-	opt, err := redis.ParseURL(redisURL)
+	// Redis client
+	redisClient, err := util.InitRedisClient()
 	if err != nil {
-		log.Fatalf("Failed to parse Redis URL: %v", err)
+		logger.Error("failed to initialize redis client", "err", err)
+		os.Exit(1)
 	}
-	rc := redis.NewClient(opt)
-	if err := rc.Ping(ctx).Err(); err != nil {
-		log.Fatalf("Failed to ping Redis: %v", err)
+	defer redisClient.Close()
+
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		logger.Error("Failed to ping Redis", "err", err)
+		os.Exit(1)
 	}
-	log.Println("✓ Connected to Redis")
+	logger.Info("✓ Connected to Redis")
 
-	log.Println("✓ Ready to process events")
+	logger.Info("✓ Ready to process events")
 
-	// HTTP server for SSE
-	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, "OK")
-	})
-	// TODO: GET /api/drops/:drop_id/stream (SSE endpoint)
+	// HTTP server
+	router := mux.NewRouter()
+	addr := ":" + port
+	server := util.NewServer(addr, readTimout, writeTimeout, idleTimeout, router)
 
-	// Background processor loop
+	sseServer := NewSSEServer(redisClient, logger)
+
+	apiClient := NewStubDataAPIClient(db, logger)
+	handler := NewHandler(apiClient, sseServer, logger)
+
+	router.HandleFunc("/healthz", Health)
+	router.HandleFunc("/api/drops/{url_slug}/stream", handler.HandleSSEStream)
+
+	go sseServer.ListenToRedis(ctx)
+	go ConsumeRedisStreams(ctx, redisClient, apiClient, sseServer, logger)
 	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
 		for {
-			// TODO: Read from Redis Streams, process events, store in database
-			time.Sleep(1 * time.Second)
+			select {
+			case <-ticker.C:
+				for _, slug := range sseServer.ActiveDropSlugs() {
+					if !apiClient.DropExists(ctx, slug) {
+						sseServer.EvictDrop(slug)
+					}
+				}
+			case <-ctx.Done():
+				return
+			}
 		}
 	}()
+	logger.Info("✓ Listening on :" + port)
 
-	// Handle shutdown signals
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-
-	log.Printf("✓ Listening on :%s", port)
+	// Start HTTP server
+	serverErrors := make(chan error, 1)
 	go func() {
-		if err := http.ListenAndServe(":"+port, mux); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server error: %v", err)
+		if err := server.Start(); err != nil {
+			serverErrors <- err
 		}
 	}()
 
-	sig := <-quit
-	log.Printf("Received signal: %v, shutting down...", sig)
+	// Wait for shutdown signal or server error
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
+	select {
+	case err := <-serverErrors:
+		logger.Error("server failed", "error", err)
+		os.Exit(1)
 
-	rc.Close()
-	db.Close()
-	log.Println("✓ Processor stopped")
-}
+	case sig := <-shutdown:
+		logger.Info("shutdown initiated", "signal", sig)
 
-func maskURL(url string) string {
-	if url == "" {
-		return "(not set)"
+		// Graceful HTTP shutdown
+		shutdownCtx, cancel := context.WithTimeout(ctx, shutdownTimeout)
+		defer cancel()
+
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			logger.Error("graceful shutdown failed", "error", err)
+			os.Exit(1)
+		}
+		logger.Info("shutdown complete")
 	}
-	if len(url) > 40 {
-		return url[:40] + "..."
-	}
-	return url
 }

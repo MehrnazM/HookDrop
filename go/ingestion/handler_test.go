@@ -12,12 +12,13 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
+	util "github.com/mehrnazm/webhookx/go/util"
 	"github.com/redis/go-redis/v9"
 )
 
 // MockRedisClient is a simple mock for Redis
 type MockRedisClient struct {
-	addedMessages []WebhookMessage
+	addedMessages []util.WebhookMessage
 	shouldFail    bool
 }
 

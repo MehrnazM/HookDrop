@@ -6,26 +6,15 @@ import (
 	"log/slog"
 	"time"
 
+	util "github.com/mehrnazm/webhookx/go/util"
 	"github.com/redis/go-redis/v9"
 )
 
-// WebhookMessage is what gets enqueued to Redis Streams
-type WebhookMessage struct {
-	DropSlug    string            `json:"drop_slug"`
-	Method      string            `json:"http_method"`
-	Path        string            `json:"path"`
-	Headers     map[string]string `json:"headers"`
-	QueryParams map[string]string `json:"query_params"`
-	Body        interface{}       `json:"body"`
-	IPAddress   string            `json:"ip_address"`
-	ReceivedAt  string            `json:"received_at"`
-}
-
 // EnqueueWebhook publishes a webhook message to Redis Streams
-func EnqueueWebhook(ctx context.Context, rc RedisClient, msg WebhookMessage, logger *slog.Logger) error {
+func EnqueueWebhook(ctx context.Context, rc RedisClient, msg util.WebhookMessage, logger *slog.Logger) error {
 	// Marshal to JSON
 
-	payload, err := json.Marshal(msg)
+	body, err := json.Marshal(msg)
 	if err != nil {
 		logger.Error("failed to marshal webhook message", "err", err)
 		return err
@@ -37,7 +26,7 @@ func EnqueueWebhook(ctx context.Context, rc RedisClient, msg WebhookMessage, log
 
 	_, err = rc.XAdd(ctx, &redis.XAddArgs{
 		Stream: "webhooks",
-		Values: []interface{}{"payload", string(payload)},
+		Values: []interface{}{"drop", string(body)},
 	}).Result()
 	if err != nil {
 		logger.Error("failed to enqueue webhook to redis", "err", err, "drop_slug", msg.DropSlug)

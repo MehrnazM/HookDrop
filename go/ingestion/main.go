@@ -2,40 +2,31 @@ package main
 
 import (
 	"context"
-	"database/sql"
-	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
 	util "github.com/mehrnazm/webhookx/go/util"
 )
 
+const (
+	readTimout      = 15 * time.Second
+	writeTimeout    = 15 * time.Second
+	idleTimeout     = 20 * time.Second
+	shutdownTimeout = 20 * time.Second
+)
+
 func main() {
 	logger := util.SetupLogger("ingestion")
 	logger.Info("starting up ingestion service ...")
+	ctx, cancelBackgroundCtx := context.WithCancel(context.Background())
+	defer cancelBackgroundCtx()
 
 	// Read environment
 	port := util.GetStringEnv("PORT", "8080")
-	dbURL, err := util.MustGetString("DATABASE_URL")
-	if err != nil {
-		logger.Error("DATABASE_URL missing")
-		os.Exit(1)
-	}
-
-	// Database connection
-	db, err := sql.Open("postgres", dbURL)
-	if err != nil {
-		logger.Error("Failed to open database", "err", err)
-		os.Exit(1)
-	}
-	defer db.Close()
-
-	if err := db.Ping(); err != nil {
-		logger.Error("Failed to ping database", "err", err)
-		os.Exit(1)
-	}
-	logger.Info("✓ Connected to PostgreSQL")
 
 	// Redis client
 	redisClient, err := util.InitRedisClient()
@@ -45,7 +36,7 @@ func main() {
 	}
 	defer redisClient.Close()
 
-	if err := redisClient.Ping(context.Background()).Err(); err != nil {
+	if err := redisClient.Ping(ctx).Err(); err != nil {
 		logger.Error("Failed to ping Redis", "err", err)
 		os.Exit(1)
 	}
@@ -53,13 +44,41 @@ func main() {
 
 	// HTTP server
 	router := mux.NewRouter()
+	addr := ":" + port
+	server := util.NewServer(addr, readTimout, writeTimeout, idleTimeout, router)
+
 	handler := NewHandler(redisClient, logger)
 	router.HandleFunc("/drop/{url_slug}", handler.PublicDropPost).Methods("POST", "GET", "PUT", "PATCH", "DELETE")
 	router.HandleFunc("/healthz", Health)
 
-	logger.Info("✓ Listening on :" + port)
-	if err := http.ListenAndServe(":"+port, router); err != nil {
-		logger.Error("server error", "err", err)
+	// Start HTTP server
+	serverErrors := make(chan error, 1)
+	go func() {
+		if err := server.Start(); err != nil {
+			serverErrors <- err
+		}
+	}()
+
+	// Wait for shutdown signal or server error
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
+	select {
+	case err := <-serverErrors:
+		logger.Error("server failed", "error", err)
 		os.Exit(1)
+
+	case sig := <-shutdown:
+		logger.Info("shutdown initiated", "signal", sig)
+
+		// Graceful HTTP shutdown
+		shutdownCtx, cancel := context.WithTimeout(ctx, shutdownTimeout)
+		defer cancel()
+
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			logger.Error("graceful shutdown failed", "error", err)
+			os.Exit(1)
+		}
+
+		logger.Info("shutdown complete")
 	}
 }
