@@ -74,8 +74,8 @@ func main() {
 	apiClient := NewPostgresDataAPIClient(db, logger)
 	handler := NewHandler(apiClient, sseServer, logger)
 
-	router.HandleFunc("/healthz", Health)
-	router.HandleFunc("/api/drops/{url_slug}/stream", handler.HandleSSEStream)
+	router.HandleFunc("/healthz", Health).Methods("GET")
+	router.HandleFunc("/api/drops/{url_slug}/stream", handler.HandleSSEStream).Methods("GET")
 
 	go sseServer.ListenToRedis(ctx)
 	go ConsumeRedisStreams(ctx, redisClient, apiClient, sseServer, logger)

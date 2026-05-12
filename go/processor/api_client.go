@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"log/slog"
+	"net"
+	"strings"
 	"time"
 
 	util "github.com/mehrnazm/webhookx/go/util"
@@ -82,7 +84,15 @@ func (c *PostgresDataAPIClient) StoreWebhookEvent(ctx context.Context, event uti
 
 	var ip interface{}
 	if event.Metadata.IPAddress != "" {
-		ip = event.Metadata.IPAddress
+		// Strip port if present (e.g., "192.168.1.1:8080" -> "192.168.1.1")
+		ipAddr := event.Metadata.IPAddress
+		if host, _, err := net.SplitHostPort(ipAddr); err == nil {
+			ipAddr = host
+		} else if strings.Contains(ipAddr, ":") {
+			// If SplitHostPort fails but there's a colon, try simple split
+			ipAddr = strings.Split(ipAddr, ":")[0]
+		}
+		ip = ipAddr
 	}
 
 	_, err = c.db.ExecContext(ctx,

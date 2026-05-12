@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
 	util "github.com/mehrnazm/webhookx/go/util"
 	"github.com/redis/go-redis/v9"
 )
@@ -15,8 +16,9 @@ import (
 const (
 	streamName    = "webhooks"
 	consumerGroup = "processor"
-	consumerName  = "processor-1"
 )
+
+var consumerName = uuid.New().String()
 
 func ConsumeRedisStreams(ctx context.Context, rc *redis.Client, apiClient DataAPIClient, sseServer *SSEServer, logger *slog.Logger) {
 	err := rc.XGroupCreateMkStream(ctx, streamName, consumerGroup, "0").Err()
