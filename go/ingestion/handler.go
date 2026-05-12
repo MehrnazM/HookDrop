@@ -15,9 +15,11 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+
 // RedisClient interface defines the methods we use from redis.Client
 type RedisClient interface {
 	XAdd(ctx context.Context, args *redis.XAddArgs) *redis.StringCmd
+	Exists(ctx context.Context, keys ...string) *redis.IntCmd
 	Ping(ctx context.Context) *redis.StatusCmd
 	Close() error
 }
@@ -25,12 +27,15 @@ type RedisClient interface {
 type Handler struct {
 	redisClient RedisClient
 	logger      *slog.Logger
+	rateLimiter *DropRateLimiter
 }
 
 func NewHandler(redis RedisClient, logger *slog.Logger) *Handler {
 	return &Handler{
 		redisClient: redis,
 		logger:      logger,
+		// 60 requests/minute per drop slug, burst of 20
+		rateLimiter: NewDropRateLimiter(1, 20),
 	}
 }
 
@@ -46,6 +51,24 @@ func (h *Handler) PublicDropPost(w http.ResponseWriter, r *http.Request) {
 
 	h.logger.Info("webhook received", "drop_slug", dropSlug, "method", r.Method, "path", r.RequestURI)
 
+	// Rate limit per drop slug (60 req/min, burst 20).
+	if !h.rateLimiter.Allow(dropSlug) {
+		http.Error(w, `{"error":"rate_limited","message":"Too many requests"}`, http.StatusTooManyRequests)
+		return
+	}
+
+	// Reject early if the drop doesn't exist or has expired.
+	n, err := h.redisClient.Exists(r.Context(), fmt.Sprintf("drop:%s", dropSlug)).Result()
+	if err != nil {
+		h.logger.Error("redis exists check failed", "drop_slug", dropSlug, "err", err)
+		util.WriteError(w, util.InternalError("Service unavailable"))
+		return
+	}
+	if n == 0 {
+		util.WriteError(w, util.NotFound("Drop not found"))
+		return
+	}
+
 	requestID := r.Header.Get("X-Request-ID")
 	if requestID == "" {
 		requestID = uuid.NewString()
@@ -54,7 +77,7 @@ func (h *Handler) PublicDropPost(w http.ResponseWriter, r *http.Request) {
 	reqLogger := h.logger.With("request-ID", requestID)
 
 	// Validate request size
-	if err := ValidateRequest(r); err != nil {
+	if err := ValidateRequest(w, r); err != nil {
 		reqLogger.Error("request validation failed", "err", err)
 		util.WriteError(w, err)
 		return

@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	readTimout      = 15 * time.Second
+	readTimeout     = 15 * time.Second
 	writeTimeout    = 0
 	idleTimeout     = 20 * time.Second
 	shutdownTimeout = 20 * time.Second
@@ -27,23 +27,23 @@ func main() {
 	ctx, cancelBackgroundCtx := context.WithCancel(context.Background())
 	defer cancelBackgroundCtx()
 
-	port := util.GetStringEnv("PORT", "8081")
+	port := util.GetStringEnv("PORT", "8082")
+
 	dbURL, err := util.MustGetString("DATABASE_URL")
 	if err != nil {
 		logger.Error("DATABASE_URL missing")
 		os.Exit(1)
 	}
 
-	// Database connection
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		logger.Error("Failed to open database", "err", err)
+		logger.Error("failed to open database", "err", err)
 		os.Exit(1)
 	}
 	defer db.Close()
 
 	if err := db.Ping(); err != nil {
-		logger.Error("Failed to ping database", "err", err)
+		logger.Error("failed to ping database", "err", err)
 		os.Exit(1)
 	}
 	logger.Info("✓ Connected to PostgreSQL")
@@ -67,11 +67,11 @@ func main() {
 	// HTTP server
 	router := mux.NewRouter()
 	addr := ":" + port
-	server := util.NewServer(addr, readTimout, writeTimeout, idleTimeout, router)
+	server := util.NewServer(addr, readTimeout, writeTimeout, idleTimeout, router)
 
 	sseServer := NewSSEServer(redisClient, logger)
 
-	apiClient := NewStubDataAPIClient(db, logger)
+	apiClient := NewPostgresDataAPIClient(db, logger)
 	handler := NewHandler(apiClient, sseServer, logger)
 
 	router.HandleFunc("/healthz", Health)

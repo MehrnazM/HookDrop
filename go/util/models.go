@@ -3,9 +3,10 @@ package util
 import "time"
 
 type Drop struct {
-	Slug   string    `json:"slug"`
-	Token  string    `json:"token"`
-	Expiry time.Time `json:"expiry"`
+	Slug      string    `json:"slug"`
+	Token     string    `json:"token"`
+	Expiry    time.Time `json:"expiry"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type WebhookMessageMetadata struct {

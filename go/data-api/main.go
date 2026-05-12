@@ -3,73 +3,125 @@ package main
 import (
 	"context"
 	"database/sql"
-	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
-	"github.com/redis/go-redis/v9"
+	dbpkg "github.com/mehrnazm/webhookx/go/data-api/db"
+	"github.com/mehrnazm/webhookx/go/data-api/handlers"
+	"github.com/mehrnazm/webhookx/go/data-api/middleware"
+	util "github.com/mehrnazm/webhookx/go/util"
+)
+
+const (
+	readTimeout     = 15 * time.Second
+	writeTimeout    = 15 * time.Second
+	idleTimeout     = 20 * time.Second
+	shutdownTimeout = 20 * time.Second
 )
 
 func main() {
-	// Read environment
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8081"
+	logger := util.SetupLogger("data-api")
+	logger.Info("starting up data-api service ...")
+
+	ctx, cancelBackgroundCtx := context.WithCancel(context.Background())
+	defer cancelBackgroundCtx()
+
+	port := util.GetStringEnv("DATA_API_PORT", util.GetStringEnv("PORT", "8081"))
+
+	dbURL, err := util.MustGetString("DATABASE_URL")
+	if err != nil {
+		logger.Error("DATABASE_URL missing")
+		os.Exit(1)
 	}
-	dbURL := os.Getenv("DATABASE_URL")
-	redisURL := os.Getenv("REDIS_URL")
 
-	log.Printf("=== Data API Service Starting ===")
-	log.Printf("PORT: %s", port)
-	log.Printf("DATABASE_URL: %s", maskURL(dbURL))
-	log.Printf("REDIS_URL: %s", maskURL(redisURL))
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Test database connection
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		log.Fatalf("Failed to open database: %v", err)
+		logger.Error("failed to open database", "err", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
 	if err := db.PingContext(ctx); err != nil {
-		log.Fatalf("Failed to ping database: %v", err)
+		logger.Error("failed to ping database", "err", err)
+		os.Exit(1)
 	}
-	log.Println("✓ Connected to PostgreSQL")
+	logger.Info("✓ Connected to PostgreSQL")
 
-	// Test Redis connection
-	opt, err := redis.ParseURL(redisURL)
+	redisClient, err := util.InitRedisClient()
 	if err != nil {
-		log.Fatalf("Failed to parse Redis URL: %v", err)
+		logger.Error("failed to initialize redis client", "err", err)
+		os.Exit(1)
 	}
-	rc := redis.NewClient(opt)
-	if err := rc.Ping(ctx).Err(); err != nil {
-		log.Fatalf("Failed to ping Redis: %v", err)
-	}
-	log.Println("✓ Connected to Redis")
+	defer redisClient.Close()
 
-	// Gin router
-	router := gin.Default()
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		logger.Error("failed to ping redis", "err", err)
+		os.Exit(1)
+	}
+	logger.Info("✓ Connected to Redis")
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000", "https://webhookx.io"},
+		AllowMethods:     []string{"GET", "POST", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Authorization", "Content-Type"},
+		AllowCredentials: true,
+	}))
+
 	router.GET("/healthz", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
+	dbQueries := dbpkg.NewQueries(db)
+	h := handlers.NewHandler(dbQueries, logger, redisClient)
 
-	log.Printf("✓ Listening on :%s", port)
-	if err := router.Run(":" + port); err != nil {
-		log.Fatalf("Server error: %v", err)
-	}
-}
+	api := router.Group("/api")
+	drops := api.Group("/drops")
+	drops.POST("", h.CreateDrop)
 
-func maskURL(url string) string {
-	if url == "" {
-		return "(not set)"
+	authed := drops.Group("/:drop_slug")
+	authed.Use(middleware.Authenticate(dbQueries, logger))
+	authed.GET("", h.GetDrop)
+	authed.DELETE("", h.DeleteDrop)
+	authed.GET("/events", h.ListEvents)
+	authed.GET("/events/:event_id", h.GetEvent)
+
+	addr := ":" + port
+	server := util.NewServer(addr, readTimeout, writeTimeout, idleTimeout, router)
+
+	serverErrors := make(chan error, 1)
+	go func() {
+		logger.Info("✓ Listening on " + addr)
+		if err := server.Start(); err != nil {
+			serverErrors <- err
+		}
+	}()
+
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
+
+	select {
+	case err := <-serverErrors:
+		logger.Error("server failed", "error", err)
+		os.Exit(1)
+
+	case sig := <-shutdown:
+		logger.Info("shutdown initiated", "signal", sig)
+
+		shutdownCtx, cancel := context.WithTimeout(ctx, shutdownTimeout)
+		defer cancel()
+
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			logger.Error("graceful shutdown failed", "error", err)
+			os.Exit(1)
+		}
+		logger.Info("shutdown complete")
 	}
-	if len(url) > 40 {
-		return url[:40] + "..."
-	}
-	return url
 }

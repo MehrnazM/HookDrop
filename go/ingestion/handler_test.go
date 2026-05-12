@@ -22,6 +22,12 @@ type MockRedisClient struct {
 	shouldFail    bool
 }
 
+func (m *MockRedisClient) Exists(ctx context.Context, keys ...string) *redis.IntCmd {
+	cmd := redis.NewIntCmd(ctx, "EXISTS")
+	cmd.SetVal(1) // drop always exists in tests
+	return cmd
+}
+
 func (m *MockRedisClient) XAdd(ctx context.Context, args *redis.XAddArgs) *redis.StringCmd {
 	// Mock implementation - just return a dummy cmd
 	cmd := redis.NewStringCmd(ctx, "XADD")

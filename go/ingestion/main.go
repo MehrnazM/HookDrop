@@ -8,12 +8,11 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	_ "github.com/lib/pq"
 	util "github.com/mehrnazm/webhookx/go/util"
 )
 
 const (
-	readTimout      = 15 * time.Second
+	readTimeout     = 15 * time.Second
 	writeTimeout    = 15 * time.Second
 	idleTimeout     = 20 * time.Second
 	shutdownTimeout = 20 * time.Second
@@ -45,7 +44,7 @@ func main() {
 	// HTTP server
 	router := mux.NewRouter()
 	addr := ":" + port
-	server := util.NewServer(addr, readTimout, writeTimeout, idleTimeout, router)
+	server := util.NewServer(addr, readTimeout, writeTimeout, idleTimeout, router)
 
 	handler := NewHandler(redisClient, logger)
 	router.HandleFunc("/drop/{url_slug}", handler.PublicDropPost).Methods("POST", "GET", "PUT", "PATCH", "DELETE")

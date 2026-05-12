@@ -26,6 +26,8 @@ func EnqueueWebhook(ctx context.Context, rc RedisClient, msg util.WebhookMessage
 
 	_, err = rc.XAdd(ctx, &redis.XAddArgs{
 		Stream: "webhooks",
+		MaxLen: 10_000, // cap stream size; processor should drain fast enough that this is never hit
+		Approx: true,   // ~ prefix: efficient approximate trimming
 		Values: []interface{}{"drop", string(body)},
 	}).Result()
 	if err != nil {

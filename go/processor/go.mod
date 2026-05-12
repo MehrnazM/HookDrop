@@ -7,6 +7,7 @@ require (
 	github.com/mehrnazm/webhookx/go/util v0.0.0-00010101000000-000000000000
 	github.com/redis/go-redis/v9 v9.19.0
 	github.com/stretchr/testify v1.3.0
+	golang.org/x/crypto v0.51.0
 )
 
 require (
