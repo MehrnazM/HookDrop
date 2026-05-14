@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -127,11 +128,13 @@ func (h *Handler) PublicDropPost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get remote IP (handle X-Forwarded-For for proxies)
+	// Get remote IP (handle X-Forwarded-For for proxies).
+	// Strip port from RemoteAddr ("IP:port" → "IP") so the value is a clean INET address.
 	remoteIP := r.RemoteAddr
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		parts := strings.Split(xff, ",")
-		remoteIP = strings.TrimSpace(parts[0])
+		remoteIP = strings.TrimSpace(strings.SplitN(xff, ",", 2)[0])
+	} else if host, _, err := net.SplitHostPort(remoteIP); err == nil {
+		remoteIP = host
 	}
 
 	// Build webhook message
