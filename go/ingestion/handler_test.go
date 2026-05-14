@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -20,11 +21,21 @@ import (
 type MockRedisClient struct {
 	addedMessages []util.WebhookMessage
 	shouldFail    bool
+	dropExists    bool
+	existsErr     error
 }
 
 func (m *MockRedisClient) Exists(ctx context.Context, keys ...string) *redis.IntCmd {
 	cmd := redis.NewIntCmd(ctx, "EXISTS")
-	cmd.SetVal(1) // drop always exists in tests
+	if m.existsErr != nil {
+		cmd.SetErr(m.existsErr)
+		return cmd
+	}
+	if m.dropExists {
+		cmd.SetVal(1)
+	} else {
+		cmd.SetVal(0)
+	}
 	return cmd
 }
 
@@ -51,8 +62,13 @@ func (m *MockRedisClient) Close() error {
 // newTestHandler creates a handler with a mock Redis client and test logger
 func newTestHandler() *Handler {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	mockRedis := &MockRedisClient{shouldFail: false}
+	mockRedis := &MockRedisClient{shouldFail: false, dropExists: true}
 	return NewHandler(mockRedis, logger)
+}
+
+func newTestHandlerWithRedis(mock *MockRedisClient) *Handler {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	return NewHandler(mock, logger)
 }
 
 func TestPublicDropPostValid(t *testing.T) {
@@ -161,4 +177,53 @@ func TestPublicDropPostEmptyBody(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status 200 for empty body, got %d", w.Code)
 	}
+}
+
+func TestPublicDropPost_DropNotFound(t *testing.T) {
+	handler := newTestHandlerWithRedis(&MockRedisClient{dropExists: false})
+
+	req := httptest.NewRequest("POST", "/drop/unknownslug", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	req = mux.SetURLVars(req, map[string]string{"url_slug": "unknownslug"})
+
+	w := httptest.NewRecorder()
+	handler.PublicDropPost(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for unknown drop, got %d", w.Code)
+	}
+}
+
+func TestPublicDropPost_RedisExistsError(t *testing.T) {
+	handler := newTestHandlerWithRedis(&MockRedisClient{existsErr: errors.New("redis unavailable")})
+
+	req := httptest.NewRequest("POST", "/drop/test123", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	req = mux.SetURLVars(req, map[string]string{"url_slug": "test123"})
+
+	w := httptest.NewRecorder()
+	handler.PublicDropPost(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 on redis error, got %d", w.Code)
+	}
+}
+
+func TestPublicDropPost_RateLimited(t *testing.T) {
+	handler := newTestHandlerWithRedis(&MockRedisClient{dropExists: true})
+
+	// burst is 20 — the 21st request to the same slug should be rate limited
+	var lastCode int
+	for i := 0; i < 25; i++ {
+		req := httptest.NewRequest("POST", "/drop/rateslug", strings.NewReader(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		req = mux.SetURLVars(req, map[string]string{"url_slug": "rateslug"})
+		w := httptest.NewRecorder()
+		handler.PublicDropPost(w, req)
+		lastCode = w.Code
+		if w.Code == http.StatusTooManyRequests {
+			return
+		}
+	}
+	t.Errorf("expected 429 after burst exhausted, last code was %d", lastCode)
 }

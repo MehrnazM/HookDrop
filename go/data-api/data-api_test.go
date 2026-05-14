@@ -243,3 +243,154 @@ func TestListEvents_Empty(t *testing.T) {
 		t.Errorf("expected empty events, got %d", len(events))
 	}
 }
+
+func TestDeleteDrop_Unauthorized(t *testing.T) {
+	db := openTestDB(t)
+	rc := openTestRedis(t)
+	r := setupRouter(db, rc)
+
+	// Create a drop
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/drops", nil))
+	var created map[string]interface{}
+	json.NewDecoder(w.Body).Decode(&created)
+	dropSlug := created["url_slug"].(string)
+
+	// Attempt delete without a token
+	w2 := httptest.NewRecorder()
+	r.ServeHTTP(w2, httptest.NewRequest(http.MethodDelete, "/api/drops/"+dropSlug, nil))
+	if w2.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w2.Code)
+	}
+}
+
+func TestGetEvent_NotFound(t *testing.T) {
+	db := openTestDB(t)
+	rc := openTestRedis(t)
+	r := setupRouter(db, rc)
+
+	// Create a drop
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/drops", nil))
+	var created map[string]interface{}
+	json.NewDecoder(w.Body).Decode(&created)
+	dropSlug := created["url_slug"].(string)
+	token := created["session_token"].(string)
+
+	// Request a non-existent event ID
+	w2 := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/drops/"+dropSlug+"/events/00000000-0000-0000-0000-000000000000", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	r.ServeHTTP(w2, req)
+
+	if w2.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d: %s", w2.Code, w2.Body.String())
+	}
+}
+
+func TestListEvents_Pagination(t *testing.T) {
+	db := openTestDB(t)
+	rc := openTestRedis(t)
+	r := setupRouter(db, rc)
+
+	// Create a drop
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/drops", nil))
+	var created map[string]interface{}
+	json.NewDecoder(w.Body).Decode(&created)
+	dropSlug := created["url_slug"].(string)
+	token := created["session_token"].(string)
+
+	// Seed 3 events directly into the DB
+	dropID := getDropID(t, db, dropSlug)
+	for i := 0; i < 3; i++ {
+		insertTestEvent(t, db, dropID)
+	}
+
+	// Request page=1 limit=2 — should return 2 events, total_count=3
+	w2 := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/drops/"+dropSlug+"/events?page=1&limit=2", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	r.ServeHTTP(w2, req)
+
+	if w2.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w2.Code, w2.Body.String())
+	}
+
+	var body map[string]interface{}
+	json.NewDecoder(w2.Body).Decode(&body)
+	if body["total_count"].(float64) != 3 {
+		t.Errorf("expected total_count=3, got %v", body["total_count"])
+	}
+	events := body["events"].([]interface{})
+	if len(events) != 2 {
+		t.Errorf("expected 2 events (limit=2), got %d", len(events))
+	}
+	if body["limit"].(float64) != 2 {
+		t.Errorf("expected limit=2 in response, got %v", body["limit"])
+	}
+}
+
+func TestCreateDrop_CookieSet(t *testing.T) {
+	db := openTestDB(t)
+	rc := openTestRedis(t)
+	r := setupRouter(db, rc)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/drops", nil))
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", w.Code)
+	}
+
+	// Verify session_token cookie is present
+	var cookieToken string
+	for _, c := range w.Result().Cookies() {
+		if c.Name == "session_token" {
+			cookieToken = c.Value
+			break
+		}
+	}
+	if cookieToken == "" {
+		t.Fatal("expected session_token cookie to be set on CreateDrop response")
+	}
+
+	var created map[string]interface{}
+	json.NewDecoder(w.Body).Decode(&created)
+	dropSlug := created["url_slug"].(string)
+
+	// Use the cookie (no Authorization header) to access the drop
+	w2 := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/drops/"+dropSlug, nil)
+	req.AddCookie(&http.Cookie{Name: "session_token", Value: cookieToken})
+	r.ServeHTTP(w2, req)
+
+	if w2.Code != http.StatusOK {
+		t.Errorf("expected 200 with cookie auth, got %d: %s", w2.Code, w2.Body.String())
+	}
+}
+
+// --- Helpers ---
+
+func getDropID(t *testing.T, db *sql.DB, slug string) string {
+	t.Helper()
+	var id string
+	if err := db.QueryRowContext(context.Background(),
+		`SELECT id FROM drops WHERE url_slug = $1`, slug,
+	).Scan(&id); err != nil {
+		t.Fatalf("getDropID: %v", err)
+	}
+	return id
+}
+
+func insertTestEvent(t *testing.T, db *sql.DB, dropID string) {
+	t.Helper()
+	_, err := db.ExecContext(context.Background(), `
+		INSERT INTO webhook_events (drop_id, http_method, path, headers, query_params, body, received_at)
+		VALUES ($1, 'POST', '/test', '{}', '{}', '{}', NOW())`,
+		dropID,
+	)
+	if err != nil {
+		t.Fatalf("insertTestEvent: %v", err)
+	}
+}
