@@ -1,6 +1,4 @@
 .env
 **/.DS_store
-**/ingestion
-**/data-api
-**/processor
 graphify-out
+frontend/
