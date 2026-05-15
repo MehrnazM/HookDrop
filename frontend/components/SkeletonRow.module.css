@@ -1,0 +1,13 @@
+.row {
+  display: grid;
+  grid-template-columns: 46px 1fr 46px;
+  gap: 8px;
+  align-items: center;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.method { height: 18px; width: 36px; }
+.meta   { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.path   { height: 11px; width: 65%; }
+.time   { height: 9px;  width: 35%; }
+.status { height: 18px; width: 30px; justify-self: end; }

@@ -14,6 +14,7 @@ type Props = {
   dropSlug: string
   onCopyCurl: () => void
   curlCopied: boolean
+  onBack: () => void
 }
 
 function KVTable({ data }: { data: Record<string, string> }) {
@@ -33,7 +34,7 @@ function KVTable({ data }: { data: Record<string, string> }) {
   )
 }
 
-export default function RequestDetail({ event, onCopyCurl, curlCopied }: Props) {
+export default function RequestDetail({ event, onCopyCurl, curlCopied, onBack }: Props) {
   const [tab, setTab] = useState<Tab>('body')
 
   const ts = new Date(event.received_at).toUTCString()
@@ -41,6 +42,7 @@ export default function RequestDetail({ event, onCopyCurl, curlCopied }: Props) 
   return (
     <div className={styles.panel}>
       <div className={styles.header}>
+        <button className={styles.backBtn} onClick={onBack}>← Back</button>
         <MethodBadge method={event.http_method} />
         <StatusBadge status={event.response_status ?? 200} />
         <span className={styles.ts}>{ts}</span>

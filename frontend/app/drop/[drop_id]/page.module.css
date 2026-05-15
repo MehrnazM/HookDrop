@@ -175,3 +175,37 @@
   background: var(--accent);
   color: #fff;
 }
+
+/* ── Skeleton placeholders ─────────────────────────────────────── */
+.topbarSkeleton {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.skLogo   { height: 18px; width: 90px; }
+.skUrlBar { height: 32px; flex: 1; border-radius: 6px; }
+.skBtn    { height: 26px; width: 70px; border-radius: 4px; }
+.skTitle  { height: 12px; width: 70px; }
+
+/* ── Responsive ────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .topbar { gap: 8px; padding: 8px 12px; }
+  .logo   { font-size: 13px; }
+
+  .urlBar { padding: 5px 8px; }
+  .urlText { display: none; }  /* hide long URL on small screens */
+
+  .listPanel  { width: 100%; border-right: none; }
+  .detailPanel { display: none; }
+
+  /* When an item is selected on mobile: hide list, show detail full-width */
+  .mobileDetail .listPanel  { display: none; }
+  .mobileDetail .detailPanel {
+    display: flex;
+    width: 100%;
+  }
+}

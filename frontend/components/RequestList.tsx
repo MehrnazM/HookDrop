@@ -2,6 +2,7 @@
 
 import MethodBadge from './MethodBadge'
 import StatusBadge from './StatusBadge'
+import SkeletonRow from './SkeletonRow'
 import styles from './RequestList.module.css'
 import { EventPreview } from '@/lib/types'
 
@@ -10,6 +11,10 @@ type Props = {
   selectedId: string | null
   onSelect: (id: string) => void
   newIds: Set<string>
+  loading: boolean
+  hasMore: boolean
+  loadingMore: boolean
+  onLoadMore: () => void
 }
 
 function relativeTime(iso: string): string {
@@ -22,7 +27,18 @@ function relativeTime(iso: string): string {
   return `${Math.floor(m / 60)}h ago`
 }
 
-export default function RequestList({ events, selectedId, onSelect, newIds }: Props) {
+export default function RequestList({
+  events, selectedId, onSelect, newIds,
+  loading, hasMore, loadingMore, onLoadMore,
+}: Props) {
+  if (loading) {
+    return (
+      <div className={styles.list}>
+        {Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}
+      </div>
+    )
+  }
+
   if (events.length === 0) {
     return (
       <div className={styles.empty}>
@@ -33,27 +49,41 @@ export default function RequestList({ events, selectedId, onSelect, newIds }: Pr
   }
 
   return (
-    <div className={styles.list}>
-      {events.map((event) => {
-        const isActive = event.id === selectedId
-        const isNew = newIds.has(event.id)
-        const rowClass = [
-          styles.row,
-          isActive ? styles.active : '',
-          isNew ? 'slide-in' : '',
-        ].join(' ')
+    <>
+      <div className={styles.list}>
+        {events.map((event) => {
+          const isActive = event.id === selectedId
+          const isNew = newIds.has(event.id)
+          const rowClass = [
+            styles.row,
+            isActive ? styles.active : '',
+            isNew ? 'slide-in' : '',
+          ].join(' ')
 
-        return (
-          <div key={event.id} onClick={() => onSelect(event.id)} className={rowClass}>
-            <MethodBadge method={event.http_method} />
-            <div className={styles.meta}>
-              <div className={styles.path}>{event.path || '/'}</div>
-              <div className={styles.time}>{relativeTime(event.received_at)}</div>
+          return (
+            <div key={event.id} onClick={() => onSelect(event.id)} className={rowClass}>
+              <MethodBadge method={event.http_method} />
+              <div className={styles.meta}>
+                <div className={styles.path}>{event.path || '/'}</div>
+                <div className={styles.time}>{relativeTime(event.received_at)}</div>
+              </div>
+              <StatusBadge status={200} />
             </div>
-            <StatusBadge status={200} />
-          </div>
-        )
-      })}
-    </div>
+          )
+        })}
+      </div>
+
+      {hasMore && (
+        <div className={styles.loadMore}>
+          <button
+            className={styles.loadMoreBtn}
+            onClick={onLoadMore}
+            disabled={loadingMore}
+          >
+            {loadingMore ? 'Loading…' : 'Load more'}
+          </button>
+        </div>
+      )}
+    </>
   )
 }
