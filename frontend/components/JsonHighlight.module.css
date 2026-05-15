@@ -1,0 +1,31 @@
+.codeBlock {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.75;
+  overflow-x: auto;
+}
+.noBody {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.rawWarn {
+  color: var(--yellow);
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+.rawText {
+  color: var(--text-muted);
+  font-style: italic;
+}
+.jKey  { color: #7DD3FC; }
+.jStr  { color: #86EFAC; }
+.jNum  { color: #FCA5A5; }
+.jBool { color: #C084FC; }
+.jMuted { color: var(--text-muted); }
+.indent { padding-left: 1.25rem; }

@@ -1,0 +1,98 @@
+.panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+.header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.ts {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  flex: 1;
+}
+.actionBtn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: var(--sans);
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.actionBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+.tab {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 8px 14px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+  user-select: none;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tab:hover { color: var(--text); }
+.tabActive      { color: var(--accent); border-bottom-color: var(--accent); }
+.tabActiveResp  { color: var(--green);  border-bottom-color: var(--green);  }
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+.kvRow {
+  display: flex;
+  gap: 16px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.kvKey {
+  color: #7DD3FC;
+  min-width: 180px;
+  flex-shrink: 0;
+}
+.kvVal {
+  color: var(--text);
+  word-break: break-all;
+}
+.emptyState {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.responseStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.responseStatusLabel {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}

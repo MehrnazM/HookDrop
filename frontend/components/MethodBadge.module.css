@@ -1,0 +1,14 @@
+.badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.GET    { background: var(--green-dim);   color: var(--green);  }
+.POST   { background: var(--accent-glow); color: var(--accent); }
+.PUT    { background: var(--yellow-dim);  color: var(--yellow); }
+.PATCH  { background: var(--yellow-dim);  color: var(--yellow); }
+.DELETE { background: var(--red-dim);     color: var(--red);    }
+.DEF    { background: var(--surface2);    color: var(--text-muted); }

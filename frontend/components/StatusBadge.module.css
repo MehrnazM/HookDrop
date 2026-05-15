@@ -1,0 +1,12 @@
+.badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.s2xx { background: var(--green-dim);  color: var(--green);      }
+.s4xx { background: var(--yellow-dim); color: var(--yellow);     }
+.s5xx { background: var(--red-dim);    color: var(--red);        }
+.def  { background: var(--surface2);   color: var(--text-muted); }
