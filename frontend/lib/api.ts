@@ -6,6 +6,16 @@ function authHeaders(token: string): HeadersInit {
   return { Authorization: `Bearer ${token}` }
 }
 
+async function throwDropError(res: Response): Promise<never> {
+  if (res.status === 404) throw new Error('DROP_NOT_FOUND')
+  if (res.status === 401) {
+    const body = await res.json()
+    if (body.error === 'empty_token') throw new Error('TOKEN_EMPTY')
+    throw new Error('TOKEN_EXPIRED')
+  }
+  throw new Error(`DROP_ERROR_${res.status}`)
+}
+
 export async function createDrop(): Promise<CreateDropResponse> {
   const res = await fetch(`${API_BASE}/api/drops`, { method: 'POST' })
   if (!res.ok) throw new Error('Failed to create drop')
@@ -16,8 +26,7 @@ export async function getDrop(dropUrl: string, token: string): Promise<Drop> {
   const res = await fetch(`${API_BASE}/api/drops/${dropUrl}`, {
     headers: authHeaders(token),
   })
-  if (res.status === 401 || res.status === 404) throw new Error('SESSION_EXPIRED')
-  if (!res.ok) throw new Error('Failed to fetch drop')
+  if (!res.ok) return throwDropError(res)
   return res.json()
 }
 

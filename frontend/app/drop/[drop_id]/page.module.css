@@ -160,6 +160,14 @@
   font-size: 14px;
   color: var(--red);
 }
+.sessionErrorMessage {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 400px;
+  text-align: center;
+  line-height: 1.5;
+}
 .backBtn {
   font-family: var(--sans);
   font-size: 13px;

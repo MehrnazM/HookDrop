@@ -15,16 +15,6 @@ import (
 // Reads token from Authorization: Bearer header or session_token cookie.
 func Authenticate(dbQueries *dbpkg.Queries, logger *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		token := extractToken(c)
-		if token == "" {
-			logger.Error("empty token for authed endpoint", "path", c.Request.URL.Path, "method", c.Request.Method)
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error":   "invalid_token",
-				"message": "Authentication required",
-			})
-			return
-		}
-
 		dropSlug := c.Param("drop_slug")
 		drop, err := dbQueries.GetDropBySlug(c.Request.Context(), dropSlug)
 		if err != nil {
@@ -40,6 +30,16 @@ func Authenticate(dbQueries *dbpkg.Queries, logger *slog.Logger) gin.HandlerFunc
 			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
 				"message": "Drop not found",
+			})
+			return
+		}
+
+		token := extractToken(c)
+		if token == "" {
+			logger.Error("empty token for authed endpoint", "path", c.Request.URL.Path, "method", c.Request.Method)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error":   "empty_token",
+				"message": "Authentication required",
 			})
 			return
 		}

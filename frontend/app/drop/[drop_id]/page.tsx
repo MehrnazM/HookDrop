@@ -25,7 +25,7 @@ export default function DropPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detail, setDetail] = useState<EventDetail | null>(null)
   const [newIds, setNewIds] = useState<Set<string>>(new Set())
-  const [sessionError, setSessionError] = useState(false)
+  const [errorState, setErrorState] = useState<'no_token' | 'expired' | 'not_found' | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -42,21 +42,22 @@ export default function DropPage() {
   useEffect(() => {
     if (!dropSlug) return
     const token = localStorage.getItem(`token:${dropSlug}`) ?? ''
-    if (!token) { setSessionError(true); setLoading(false); return }
     tokenRef.current = token
 
     async function init() {
       try {
-        const [dropData, eventsData] = await Promise.all([
-          getDrop(dropSlug, token),
-          getEvents(dropSlug, token, 1, PAGE_LIMIT),
-        ])
+        const dropData = await getDrop(dropSlug, token)
+        const eventsData = await getEvents(dropSlug, token, 1, PAGE_LIMIT)
         setDrop(dropData)
         setEvents(eventsData.events)
         setTotalCount(eventsData.total_count)
         setPage(1)
       } catch (err: unknown) {
-        if (err instanceof Error && err.message === 'SESSION_EXPIRED') setSessionError(true)
+        if (err instanceof Error) {
+          if (err.message === 'DROP_NOT_FOUND') setErrorState('not_found') 
+          else if (err.message === 'TOKEN_EMPTY') setErrorState('no_token')
+          else if(err.message === 'TOKEN_EXPIRED') setErrorState('expired')
+        }
       } finally {
         setLoading(false)
       }
@@ -66,7 +67,7 @@ export default function DropPage() {
 
   // ── SSE ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (loading || sessionError || !dropSlug) return
+    if (loading || errorState || !dropSlug) return
     const token = tokenRef.current
 
     const cancel = openEventStream(
@@ -94,12 +95,12 @@ export default function DropPage() {
           })
         } catch { /* non-fatal */ }
       },
-      () => setSessionError(true),
+      () => setErrorState(prev => prev ?? 'expired'),
     )
 
     cancelSSERef.current = cancel
     return () => cancel()
-  }, [loading, sessionError, dropSlug])
+  }, [loading, errorState, dropSlug])
 
   // ── Load more ────────────────────────────────────────────────────
   async function handleLoadMore() {
@@ -203,10 +204,26 @@ export default function DropPage() {
     )
   }
 
-  if (sessionError) {
+  if (errorState) {
+    const errorConfig = {
+      no_token: {
+        title: 'Wrong browser or private window',
+        message: 'This Drop can only be viewed in the browser where you created it. Your session token is stored there.',
+      },
+      expired: {
+        title: 'Drop expired',
+        message: 'This Drop existed but your 24-hour session has ended. All events have been deleted.',
+      },
+      not_found: {
+        title: 'Drop not found',
+        message: 'This URL doesn\'t match any active Drop.',
+      },
+    }
+    const error = errorConfig[errorState]
     return (
       <div className={styles.centered}>
-        <p className={styles.sessionErrorTitle}>Session expired or drop not found.</p>
+        <p className={styles.sessionErrorTitle}>{error.title}</p>
+        <p className={styles.sessionErrorMessage}>{error.message}</p>
         <button onClick={() => router.push('/')} className={styles.backBtn}>
           Create a new drop
         </button>
