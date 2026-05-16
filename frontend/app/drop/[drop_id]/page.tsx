@@ -26,11 +26,13 @@ export default function DropPage() {
   const [detail, setDetail] = useState<EventDetail | null>(null)
   const [newIds, setNewIds] = useState<Set<string>>(new Set())
   const [errorState, setErrorState] = useState<'no_token' | 'expired' | 'not_found' | null>(null)
+  const [connectionState, setConnectionState] = useState<'connected' | 'reconnecting' | 'failed'>('connected')
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
   const [curlCopied, setCurlCopied] = useState(false)
   const [urlCopied, setUrlCopied] = useState(false)
+  const [latestEventAnnouncement, setLatestEventAnnouncement] = useState('')
 
   const tokenRef = useRef<string>('')
   const cancelSSERef = useRef<(() => void) | null>(null)
@@ -69,37 +71,67 @@ export default function DropPage() {
   useEffect(() => {
     if (loading || errorState || !dropSlug) return
     const token = tokenRef.current
+    let cancelled = false
+    let retryCount = 0
+    let retryTimerId: ReturnType<typeof setTimeout> | null = null
+    const BACKOFF_MS = [1000, 2000, 4000, 8000, 8000]
 
-    const cancel = openEventStream(
-      dropSlug,
-      token,
-      async () => {
-        try {
-          const fresh = await getEvents(dropSlug, token, 1, PAGE_LIMIT)
-          setTotalCount(fresh.total_count)
-          setEvents(prev => {
-            const existingIds = new Set(prev.map(e => e.id))
-            const incoming = fresh.events.filter(e => !existingIds.has(e.id))
-            if (incoming.length === 0) return prev
-            setNewIds(ids => {
-              const next = new Set(ids)
-              incoming.forEach(e => next.add(e.id))
-              setTimeout(() => setNewIds(cur => {
-                const cleaned = new Set(cur)
-                incoming.forEach(e => cleaned.delete(e.id))
-                return cleaned
-              }), 600)
-              return next
-            })
-            return [...incoming, ...prev]
+    async function onEvent() {
+      try {
+        const fresh = await getEvents(dropSlug, token, 1, PAGE_LIMIT)
+        setTotalCount(fresh.total_count)
+        setEvents(prev => {
+          const existingIds = new Set(prev.map(e => e.id))
+          const incoming = fresh.events.filter(e => !existingIds.has(e.id))
+          if (incoming.length === 0) return prev
+          setLatestEventAnnouncement(`New ${incoming[0].http_method} request received`)
+          setNewIds(ids => {
+            const next = new Set(ids)
+            incoming.forEach(e => next.add(e.id))
+            setTimeout(() => setNewIds(cur => {
+              const cleaned = new Set(cur)
+              incoming.forEach(e => cleaned.delete(e.id))
+              return cleaned
+            }), 600)
+            return next
           })
-        } catch { /* non-fatal */ }
-      },
-      () => setErrorState(prev => prev ?? 'expired'),
-    )
+          return [...incoming, ...prev]
+        })
+      } catch { /* non-fatal */ }
+    }
 
-    cancelSSERef.current = cancel
-    return () => cancel()
+    function onConnected() {
+      retryCount = 0
+      setConnectionState('connected')
+    }
+
+    function onExpired() {
+      setErrorState(prev => prev ?? 'expired')
+    }
+
+    function onDisconnect() {
+      if (cancelled) return
+      if (retryCount >= 5) {
+        setConnectionState('failed')
+        return
+      }
+      setConnectionState('reconnecting')
+      const delay = BACKOFF_MS[Math.min(retryCount, BACKOFF_MS.length - 1)]
+      retryCount++
+      retryTimerId = setTimeout(() => {
+        if (cancelled) return
+        cancelSSERef.current = openEventStream(dropSlug, token, onEvent, onExpired, onDisconnect, onConnected)
+      }, delay)
+    }
+
+    cancelSSERef.current = openEventStream(dropSlug, token, onEvent, onExpired, onDisconnect, onConnected)
+
+    return () => {
+      cancelled = true
+      cancelSSERef.current?.()
+      if (retryTimerId !== null) clearTimeout(retryTimerId)
+      setConnectionState('connected')
+    }
   }, [loading, errorState, dropSlug])
 
   // ── Load more ────────────────────────────────────────────────────
@@ -194,6 +226,7 @@ export default function DropPage() {
             <RequestList
               events={[]} selectedId={null} onSelect={() => {}} newIds={new Set()}
               loading={true} hasMore={false} loadingMore={false} onLoadMore={() => {}}
+              webhookUrl=""
             />
           </div>
           <div className={styles.detailPanel}>
@@ -242,15 +275,36 @@ export default function DropPage() {
           webhook<span className={styles.logoAccent}>x</span>
         </span>
         <div className={styles.urlBar}>
-          <div className={styles.pulse} />
+          <div className={styles.pulse} aria-hidden="true" />
           <span className={styles.urlText}>{webhookUrl}</span>
           <button onClick={handleCopyUrl} className={styles.copyBtn}>
             {urlCopied ? 'Copied!' : 'Copy URL'}
           </button>
         </div>
         {drop && <TTLCountdown expiresAt={drop.expires_at} />}
-        <button onClick={handleClear} className={styles.clearBtn}>Clear all</button>
+        <button onClick={handleClear} className={styles.clearBtn} aria-label="Clear all events">Clear all</button>
       </div>
+
+      {/* Reconnecting banner */}
+      {connectionState !== 'connected' && (
+        <div className={styles.reconnectBanner}>
+          {connectionState === 'reconnecting' ? (
+            <>
+              <span>&#9888; Connection lost &mdash; reconnecting</span>
+              <span className={styles.dot1}>.</span>
+              <span className={styles.dot2}>.</span>
+              <span className={styles.dot3}>.</span>
+            </>
+          ) : (
+            <>
+              <span>Connection lost &mdash; refresh to reconnect.</span>
+              <button className={styles.refreshBtn} onClick={() => window.location.reload()}>
+                Refresh
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Two-panel layout */}
       <div className={`${styles.main} ${mobileShowDetail ? styles.mobileDetail : ''}`}>
@@ -275,6 +329,7 @@ export default function DropPage() {
             hasMore={hasMore}
             loadingMore={loadingMore}
             onLoadMore={handleLoadMore}
+            webhookUrl={webhookUrl}
           />
         </div>
 
@@ -292,11 +347,21 @@ export default function DropPage() {
           )}
           {!detailLoading && !detail && (
             <div className={styles.centered}>
-              <p className={styles.muted}>Select a request to inspect it.</p>
+              <svg className={styles.emptyDetailIcon} width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/>
+                <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+              </svg>
+              <p className={styles.emptyDetailTitle}>No request selected</p>
+              <p className={styles.emptyDetailSubtext}>Click any request on the left to inspect its headers, body, and query params.</p>
             </div>
           )}
         </div>
 
+      </div>
+
+      {/* Screen-reader live region for incoming events */}
+      <div aria-live="polite" aria-atomic="false" className="sr-only">
+        {latestEventAnnouncement}
       </div>
     </div>
   )

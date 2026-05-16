@@ -73,7 +73,9 @@ export function openEventStream(
   dropUrl: string,
   token: string,
   onEvent: (event: WebhookEvent) => void,
-  onExpired?: () => void
+  onExpired?: () => void,
+  onDisconnect?: () => void,
+  onConnected?: () => void,
 ): () => void {
   let cancelled = false
 
@@ -84,13 +86,16 @@ export function openEventStream(
       })
 
       if (!res.ok || !res.body) {
-        // unauthorized or drop gone — surface expiry and stop
-        onExpired?.()
+        if (!cancelled) {
+          // 401 means the token is invalid or the drop is gone — terminal
+          res.status === 401 ? onExpired?.() : onDisconnect?.()
+        }
         return
       }
 
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
       let buffer = ''
+      let didExpire = false
 
       while (!cancelled) {
         const { value, done } = await reader.read()
@@ -105,16 +110,22 @@ export function openEventStream(
           if (!dataLine) continue // keepalive comment line
           try {
             const frame = JSON.parse(dataLine.slice(5).trim()) as SSEFrame
+            if (frame.type === 'connected') onConnected?.()
             if (frame.type === 'webhook_received') onEvent(frame.event)
-            if (frame.type === 'drop_expired') onExpired?.()
+            if (frame.type === 'drop_expired') {
+              didExpire = true
+              onExpired?.()
+            }
           } catch {
             // ignore malformed frames
           }
         }
       }
+
+      // stream closed without an explicit expiry event — recoverable disconnect
+      if (!cancelled && !didExpire) onDisconnect?.()
     } catch {
-      // network error — retry after 3 s unless cancelled
-      if (!cancelled) setTimeout(connect, 3000)
+      if (!cancelled) onDisconnect?.()
     }
   }
 

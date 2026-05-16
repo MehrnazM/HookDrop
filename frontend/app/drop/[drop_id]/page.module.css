@@ -131,7 +131,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--text-dim);
+  color: var(--text-muted);
 }
 .colLblRight { text-align: right; }
 .detailPanel {
@@ -154,6 +154,23 @@
   font-family: var(--mono);
   font-size: 12px;
   color: var(--text-muted);
+}
+.emptyDetailIcon {
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+.emptyDetailTitle {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.emptyDetailSubtext {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  max-width: 280px;
+  line-height: 1.55;
 }
 .sessionErrorTitle {
   font-family: var(--mono);
@@ -182,6 +199,46 @@
 .backBtn:hover {
   background: var(--accent);
   color: #fff;
+}
+
+/* ── Reconnecting banner ───────────────────────────────────────── */
+.reconnectBanner {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 16px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--yellow);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--yellow);
+  flex-shrink: 0;
+}
+.dot1, .dot2, .dot3 {
+  animation: dotFade 1.5s ease-in-out infinite;
+  opacity: 0;
+}
+.dot2 { animation-delay: 0.5s; }
+.dot3 { animation-delay: 1s; }
+@keyframes dotFade {
+  0%, 100% { opacity: 0; }
+  50%       { opacity: 1; }
+}
+.refreshBtn {
+  margin-left: 10px;
+  background: transparent;
+  border: 1px solid var(--yellow);
+  border-radius: 3px;
+  color: var(--yellow);
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 2px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.refreshBtn:hover {
+  background: var(--yellow);
+  color: var(--bg);
 }
 
 /* ── Skeleton placeholders ─────────────────────────────────────── */
