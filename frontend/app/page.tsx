@@ -134,12 +134,15 @@ function TypedURL() {
 
 function DemoReel() {
   const STEPS = 4
-  const STEP_MS = 4200
+  const STEP_MS = 5000
+  const STEP_LABELS = ['Get URL', 'Paste', 'Watch', 'Inspect']
   const [step, setStep] = useState(0)
   const [progress, setProgress] = useState(0)
+  const [paused, setPaused] = useState(false)
   const startRef = useRef(Date.now())
 
   useEffect(() => {
+    if (paused) return
     let raf: number
     const tick = () => {
       const elapsed = Date.now() - startRef.current
@@ -154,13 +157,15 @@ function DemoReel() {
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [])
+  }, [paused])
 
   const jumpTo = (i: number) => {
     setStep(i)
     setProgress(0)
     startRef.current = Date.now()
   }
+
+  const togglePause = () => setPaused(p => !p)
 
   return (
     <div className="reel">
@@ -260,22 +265,33 @@ function DemoReel() {
       </div>
 
       <div className="reel-progress">
-        {(['Get your URL', 'Paste into service', 'Watch it arrive', 'Inspect details'] as const).map((label, i) => (
-          <div
+        <button
+          className="reel-play"
+          onClick={togglePause}
+          aria-label={paused ? 'Play' : 'Pause'}
+          title={paused ? 'Play' : 'Pause'}
+        >
+          {paused ? (
+            <svg viewBox="0 0 12 12" fill="currentColor"><polygon points="3,2 10,6 3,10" /></svg>
+          ) : (
+            <svg viewBox="0 0 12 12" fill="currentColor"><rect x="3" y="2" width="2.5" height="8" /><rect x="6.5" y="2" width="2.5" height="8" /></svg>
+          )}
+        </button>
+        {STEP_LABELS.map((label, i) => (
+          <button
             key={i}
-            className={'reel-step-btn' + (i === step ? ' active' : '') + (i < step ? ' done' : '')}
+            className={'reel-bar' + (i === step ? ' current' : '') + (i < step ? ' complete' : '')}
             onClick={() => jumpTo(i)}
           >
-            <div className="reel-step-label">
-              <span className="reel-step-num">0{i + 1}</span>
-              <span className="reel-step-name">{label}</span>
-            </div>
-            <div className="reel-bar">
-              <div className="fill" style={{
+            <span className="reel-bar-label">
+              <span className="num">0{i + 1}</span> {label}
+            </span>
+            <span className="reel-bar-track">
+              <span className="fill" style={{
                 width: i === step ? `${progress * 100}%` : (i < step ? '100%' : '0%')
               }} />
-            </div>
-          </div>
+            </span>
+          </button>
         ))}
       </div>
     </div>
@@ -522,7 +538,7 @@ export default function HomePage() {
           </p>
           <div className="hero-ctas">
             <CreateBtn />
-            <a className="btn-secondary" href="#how">Watch the 30-second demo ↓</a>
+            <a className="btn-secondary" href="#how">Watch the 20-second demo ↓</a>
           </div>
           <div className="hero-fineprint">No account · No CLI · No tunnel · No setup</div>
           {error && (
@@ -546,8 +562,8 @@ export default function HomePage() {
           <Reveal>
             <div className="section-head">
               <span className="label-tag">How it works</span>
-              <h2>Four steps. <span className="light">Thirty seconds.</span></h2>
-              <p>Click a bar below to jump scenes. It loops on its own — try not to get hypnotized.</p>
+              <h2>Four steps. <span className="light">Twenty seconds.</span></h2>
+              <p>Click a step to jump straight to it, or hit pause to read along.</p>
             </div>
           </Reveal>
           <Reveal delay={150}>
