@@ -1,5 +1,5 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE TABLE drops (
+CREATE TABLE IF NOT EXISTS drops (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     url_slug VARCHAR(8) UNIQUE NOT NULL,
     session_token VARCHAR(64) UNIQUE NOT NULL,

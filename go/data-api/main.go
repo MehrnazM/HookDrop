@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"sort"
+	"strings"
 	"syscall"
 	"time"
 
@@ -25,8 +28,62 @@ const (
 	shutdownTimeout = 20 * time.Second
 )
 
+func runMigrate(logger interface {
+	Info(string, ...any)
+	Error(string, ...any)
+}) {
+	dbURL, err := util.MustGetString("DATABASE_URL")
+	if err != nil {
+		logger.Error("DATABASE_URL missing")
+		os.Exit(1)
+	}
+
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		logger.Error("failed to open database", "err", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	if err := db.PingContext(context.Background()); err != nil {
+		logger.Error("failed to ping database", "err", err)
+		os.Exit(1)
+	}
+
+	matches, err := filepath.Glob("postgres/migrations/*.up.sql")
+	if err != nil {
+		logger.Error("failed to glob migrations", "err", err)
+		os.Exit(1)
+	}
+	sort.Strings(matches)
+
+	for _, path := range matches {
+		name := filepath.Base(path)
+		logger.Info("applying migration", "file", name)
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			logger.Error("failed to read migration", "file", name, "err", err)
+			os.Exit(1)
+		}
+		if _, err := db.ExecContext(context.Background(), string(contents)); err != nil {
+			logger.Error("migration failed", "file", name, "err", err)
+			os.Exit(1)
+		}
+		logger.Info("migration applied", "file", name)
+	}
+
+	logger.Info("all migrations applied", "count", len(matches))
+}
+
 func main() {
 	logger := util.SetupLogger("data-api")
+
+	if len(os.Args) > 1 && strings.ToLower(os.Args[1]) == "migrate" {
+		logger.Info("running migrations ...")
+		runMigrate(logger)
+		return
+	}
+
 	logger.Info("starting up data-api service ...")
 
 	ctx, cancelBackgroundCtx := context.WithCancel(context.Background())
