@@ -79,31 +79,6 @@ Third-party service (Stripe, GitHub, etc.)
 
 ---
 
-## Project Structure
-
-```
-webhookx/
-├── docker/                    # Dockerfiles for each service
-├── go/
-│   ├── util/                  # Shared module: logger, Redis client, models, errors
-│   ├── ingestion/             # Public webhook receiver (port 8080)
-│   ├── processor/             # Queue consumer + SSE broadcaster (port 8081)
-│   └── data-api/              # REST API for dashboard (port 8082)
-├── postgres/
-│   └── migrations/
-│       └── 001_init.sql       # drops, webhook_events, drop_responses tables
-├── frontend/                  # Next.js dashboard
-│   ├── app/                   # Next.js App Router pages and layouts
-│   ├── lib/                   # API clients and shared utilities
-│   ├── public/                # Static assets
-│   ├── Dockerfile
-│   └── package.json
-├── docker-compose.yml
-└── .env.example
-```
-
----
-
 ## Getting Started
 
 ### Prerequisites
@@ -219,50 +194,6 @@ curl -N http://localhost:8081/api/drops/a3f9bc72/stream \
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | `GET` | `/api/drops/:slug/stream` | Bearer token | SSE stream — real-time webhook events |
-
----
-
-## Running Tests
-
-### Ingestion (unit tests — no infrastructure needed)
-
-```bash
-cd go/ingestion && go test ./...
-```
-
-### Processor (unit tests — no infrastructure needed)
-
-```bash
-cd go/processor && go test ./...
-```
-
-### Data API (unit tests)
-
-```bash
-cd go/data-api && go test ./handlers/... ./db/...
-```
-
-### Data API (integration tests — requires PostgreSQL and Redis)
-
-```bash
-export DATABASE_URL=postgres://webhookx:password@localhost:5432/webhookx_dev
-export REDIS_URL=redis://localhost:6379
-cd go/data-api && go test ./...
-```
-
-Integration tests are automatically skipped if `DATABASE_URL` or `REDIS_URL` are not set.
-
----
-
-## Development Status
-
-| Phase | Description | Status |
-|-------|-------------|--------|
-| Phase 1 | Docker Compose + PostgreSQL schema + migrations | ✅ Complete |
-| Phase 2 | Go Ingestion service (net/http, rate limiting, Redis queue) | ✅ Complete |
-| Phase 3 | Go Processor + SSE + Go Data API | ✅ Complete |
-| Phase 4 | Next.js frontend — Drop Inspector UI | ✅ Complete |
-| Phase 5 | Landing page + Fly.io production deployment | ✅ Complete |
 
 ---
 
