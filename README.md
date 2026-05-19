@@ -1,7 +1,5 @@
 # WebhookX
 
-> 🚧 **This project is actively under development.** Features and structure may change as new phases are completed.
-
 A developer-first webhook debugger built for the full dev-to-prod lifecycle.
 
 WebhookX gives you an instant, anonymous webhook receiver — called a **Drop** — with zero signup required. Point any third-party service (Stripe, GitHub, Shopify, Twilio) at your Drop URL and inspect every request in real time.
@@ -75,9 +73,9 @@ Third-party service (Stripe, GitHub, etc.)
 | Queue | Redis Streams |
 | Database | PostgreSQL + JSONB |
 | Real-time | Server-Sent Events (SSE) |
-| Frontend | Next.js + TypeScript *(Phase 4)* |
+| Frontend | Next.js + TypeScript |
 | Local Dev | Docker Compose |
-| Production | Fly.io *(planned)* |
+| Production | Fly.io |
 
 ---
 
@@ -94,7 +92,12 @@ webhookx/
 ├── postgres/
 │   └── migrations/
 │       └── 001_init.sql       # drops, webhook_events, drop_responses tables
-├── frontend/                  # Next.js dashboard (Phase 4)
+├── frontend/                  # Next.js dashboard
+│   ├── app/                   # Next.js App Router pages and layouts
+│   ├── lib/                   # API clients and shared utilities
+│   ├── public/                # Static assets
+│   ├── Dockerfile
+│   └── package.json
 ├── docker-compose.yml
 └── .env.example
 ```
@@ -107,6 +110,7 @@ webhookx/
 
 - [Docker](https://docs.docker.com/get-docker/) and Docker Compose
 - Go 1.21+ (for local development outside Docker)
+- Node.js 18+ and npm (for frontend development)
 
 ### 1. Clone the repo
 
@@ -121,7 +125,16 @@ cd WebhookX
 cp .env.example .env
 ```
 
-### 3. Start all services
+Edit `.env` with your local values. The key variables are:
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `REDIS_URL` | Redis connection string |
+| `SESSION_SECRET` | Secret for signing session tokens |
+| `NEXT_PUBLIC_API_URL` | Base URL for the Data API (used by the frontend) |
+
+### 3. Start the backend services
 
 ```bash
 docker-compose up --build
@@ -134,7 +147,17 @@ This starts:
 - Go Processor + SSE on `localhost:8081`
 - Go Data API on `localhost:8082`
 
-### 4. Create a Drop
+### 4. Run the frontend locally
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The Next.js dashboard will be available at `http://localhost:3000`.
+
+### 5. Create a Drop
 
 ```bash
 curl -s -X POST http://localhost:8082/api/drops | jq
@@ -149,7 +172,7 @@ Response:
 }
 ```
 
-### 5. Send a test webhook
+### 6. Send a test webhook
 
 ```bash
 curl -X POST http://localhost:8080/drop/a3f9bc72 \
@@ -157,14 +180,14 @@ curl -X POST http://localhost:8080/drop/a3f9bc72 \
   -d '{"event": "test", "data": {"amount": 4999}}'
 ```
 
-### 6. Inspect the event
+### 7. Inspect the event
 
 ```bash
 curl -s http://localhost:8082/api/drops/a3f9bc72/events \
   -H "Authorization: Bearer your-token-here" | jq
 ```
 
-### 7. Stream events in real time
+### 8. Stream events in real time
 
 ```bash
 curl -N http://localhost:8081/api/drops/a3f9bc72/stream \
@@ -238,8 +261,8 @@ Integration tests are automatically skipped if `DATABASE_URL` or `REDIS_URL` are
 | Phase 1 | Docker Compose + PostgreSQL schema + migrations | ✅ Complete |
 | Phase 2 | Go Ingestion service (net/http, rate limiting, Redis queue) | ✅ Complete |
 | Phase 3 | Go Processor + SSE + Go Data API | ✅ Complete |
-| Phase 4 | Next.js frontend — Drop Inspector UI | 🚧 In Progress |
-| Phase 5 | Landing page + Fly.io production deployment | ⏳ Planned |
+| Phase 4 | Next.js frontend — Drop Inspector UI | ✅ Complete |
+| Phase 5 | Landing page + Fly.io production deployment | ✅ Complete |
 
 ---
 
