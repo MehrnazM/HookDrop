@@ -48,7 +48,7 @@ Third-party service (Stripe, GitHub, etc.)
          ▲
          │ HTTP (JSON)
 ┌─────────────────────┐
-│  Next.js Frontend   │  :3000 — dashboard UI (Phase 4)
+│  Next.js Frontend   │  :3000 — dashboard UI 
 └─────────────────────┘
 ```
 
