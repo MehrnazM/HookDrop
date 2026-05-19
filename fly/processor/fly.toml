@@ -1,0 +1,21 @@
+app = 'webhookx-processor'
+primary_region = 'iad'
+
+[build]
+  dockerfile = 'docker/processor/Dockerfile'
+
+# Secrets (set via `fly secrets set --app webhookx-processor`):
+#   DATABASE_URL=<postgres connection string>
+#   REDIS_URL=<redis connection string>
+
+[env]
+  PORT = '8082'
+  SLOG_LEVEL = '0'
+
+# No public HTTP service — this is an internal background worker.
+# Fly will keep the process alive via the default `app` process group.
+
+[[vm]]
+  memory = '256mb'
+  cpu_kind = 'shared'
+  cpus = 1
