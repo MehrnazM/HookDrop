@@ -5,27 +5,54 @@ import { useRouter } from 'next/navigation'
 import { createDrop } from '@/lib/api'
 
 // ── Live wire ────────────────────────────────────────────────
-type Particle = { id: number; lane: number; phase: 'in' | 'out' }
+type Particle = { id: number; lane: number; phase: 'in' | 'out'; born: number }
+
+// easeOut quad: starts fast, decelerates cleanly into the destination — no stalling before arrival
+const easeOut = (t: number) => t * (2 - t)
+// easeIn quad: starts slow, accelerates away — clean departure
+const easeIn  = (t: number) => t * t
+
+// Quadratic bezier matching lane paths: P0=(112,sy), P1=(290,sy), P2=(455,110)
+// Particle must follow the SAME curve the SVG path draws — linear lerp would drift off
+const lanePoint = (t: number, sy: number) => {
+  const mt = 1 - t
+  return {
+    x: mt * mt * 112 + 2 * mt * t * 290 + t * t * 455,
+    y: mt * mt * sy  + 2 * mt * t * sy  + t * t * 110,
+  }
+}
+
+const IN_DUR   = 3200   // ms — how long a particle takes to reach WebhookX
+const OUT_DUR  = 2600   // ms — how long a particle takes to reach inspector
+const SPAWN_MS = 2000   // ms between new particles
 
 function LiveWire() {
   const [particles, setParticles] = useState<Particle[]>([])
+  const [now, setNow] = useState(() => Date.now())
   const idRef = useRef(0)
 
+  // RAF loop — drives smooth particle positions without SVG SMIL quirks
+  useEffect(() => {
+    let raf: number
+    const tick = () => { setNow(Date.now()); raf = requestAnimationFrame(tick) }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
+  // Particle spawner — in → out → removed
   useEffect(() => {
     let alive = true
     const spawn = () => {
       if (!alive) return
       const lane = Math.floor(Math.random() * 3)
       const id = ++idRef.current
-      setParticles(p => [...p, { id, lane, phase: 'in' }])
-      setTimeout(() => {
-        setParticles(p => p.map(x => x.id === id ? { ...x, phase: 'out' as const } : x))
-      }, 1100)
-      setTimeout(() => {
-        setParticles(p => p.filter(x => x.id !== id))
-      }, 2300)
+      setParticles(p => [...p, { id, lane, phase: 'in', born: Date.now() }])
+      setTimeout(() => setParticles(p =>
+        p.map(x => x.id === id ? { ...x, phase: 'out' as const, born: Date.now() } : x)
+      ), IN_DUR)
+      setTimeout(() => setParticles(p => p.filter(x => x.id !== id)), IN_DUR + OUT_DUR + 200)
     }
-    const iv = setInterval(spawn, 700)
+    const iv = setInterval(spawn, SPAWN_MS)
     spawn()
     return () => { alive = false; clearInterval(iv) }
   }, [])
@@ -42,51 +69,53 @@ function LiveWire() {
 
       <svg className="livewire-svg" preserveAspectRatio="none" viewBox="0 0 1000 220">
         <defs>
-          <linearGradient id="laneGrad" x1="0" x2="1">
-            <stop offset="0" stopColor="rgba(91,110,245,0.2)" />
-            <stop offset=".4" stopColor="rgba(91,110,245,0.5)" />
-            <stop offset=".55" stopColor="rgba(91,110,245,0.5)" />
-            <stop offset="1" stopColor="rgba(34,197,94,0.2)" />
+          {/* userSpaceOnUse on BOTH gradients — objectBoundingBox breaks on zero-height
+              paths (straight middle lane + horizontal output line) */}
+          <linearGradient id="laneGrad" x1="112" y1="0" x2="455" y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0"   stopColor="rgba(91,110,245,0.10)" />
+            <stop offset=".6"  stopColor="rgba(91,110,245,0.65)" />
+            <stop offset="1"   stopColor="rgba(91,110,245,0.85)" />
           </linearGradient>
-          <linearGradient id="laneGradOut" x1="0" x2="1">
-            <stop offset="0" stopColor="rgba(91,110,245,0.5)" />
-            <stop offset="1" stopColor="rgba(34,197,94,0.2)" />
+          <linearGradient id="laneGradOut" x1="545" y1="0" x2="862" y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0"   stopColor="rgba(91,110,245,0.80)" />
+            <stop offset="1"   stopColor="rgba(34,197,94,0.55)" />
           </linearGradient>
         </defs>
 
+        {/* Incoming lanes — top/bottom arc in; middle is straight horizontal */}
         {laneY.map((y, i) => (
           <path
             key={'lane' + i}
-            d={`M 100 ${y * 220} Q 300 ${y * 220}, 500 ${0.5 * 220}`}
+            d={`M 112 ${y * 220} Q 290 ${y * 220}, 455 110`}
             stroke="url(#laneGrad)"
-            strokeWidth="1"
+            strokeWidth="1.5"
             fill="none"
           />
         ))}
-        <path
-          d={`M 500 ${0.5 * 220} L 900 ${0.5 * 220}`}
-          stroke="url(#laneGradOut)"
-          strokeWidth="1.5"
-          fill="none"
-        />
 
+        {/* Output lane — right edge of WebhookX → left edge of inspector */}
+        <path d="M 545 110 L 862 110" stroke="url(#laneGradOut)" strokeWidth="1.5" fill="none" />
+
+        {/* Positions driven by RAF — bezier for 'in', linear for 'out' */}
         {particles.map(p => {
-          const y = laneY[p.lane] * 220
+          const sy = laneY[p.lane] * 220
+          const elapsed = now - p.born
+
           if (p.phase === 'in') {
-            return (
-              <circle key={p.id} className="lw-particle" r="3.5">
-                <animate attributeName="cx" from="100" to="500" dur="1.1s" fill="freeze" />
-                <animate attributeName="cy" from={String(y)} to="110" dur="1.1s" fill="freeze" />
-                <animate attributeName="opacity" values="0;1;1;1" dur="1.1s" fill="freeze" />
-              </circle>
-            )
+            // easeOut: decelerates smoothly into WebhookX, never stalls before arrival
+            const t = easeOut(Math.min(elapsed / IN_DUR, 1))
+            const { x: cx, y: cy } = lanePoint(t, sy)
+            const opacity = Math.min(elapsed / 200, 1)
+            return <circle key={p.id} r="3.5" cx={cx} cy={cy} opacity={opacity} className="lw-particle" />
           }
-          return (
-            <circle key={p.id} className="lw-particle out" r="3.5" cx="500" cy="110">
-              <animate attributeName="cx" from="500" to="900" dur="1.0s" fill="freeze" />
-              <animate attributeName="opacity" values="1;1;0" dur="1.0s" fill="freeze" />
-            </circle>
-          )
+
+          // easeIn: accelerates away from WebhookX toward inspector
+          const t = easeIn(Math.min(elapsed / OUT_DUR, 1))
+          const cx = 545 + (860 - 545) * t
+          const opacity = elapsed > OUT_DUR * 0.75
+            ? Math.max(0, 1 - (elapsed - OUT_DUR * 0.75) / (OUT_DUR * 0.25))
+            : 1
+          return <circle key={p.id} r="3.5" cx={cx} cy={110} opacity={opacity} className="lw-particle out" />
         })}
       </svg>
     </div>
