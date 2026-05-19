@@ -56,9 +56,14 @@ export default function DropPage() {
         setPage(1)
       } catch (err: unknown) {
         if (err instanceof Error) {
-          if (err.message === 'DROP_NOT_FOUND') setErrorState('not_found') 
-          else if (err.message === 'TOKEN_EMPTY') setErrorState('no_token')
-          else if(err.message === 'TOKEN_EXPIRED') setErrorState('expired')
+          if (err.message === 'DROP_NOT_FOUND') {
+            localStorage.removeItem('webhookx:lastSlug')
+            setErrorState('not_found')
+          } else if (err.message === 'TOKEN_EMPTY') setErrorState('no_token')
+          else if (err.message === 'TOKEN_EXPIRED') {
+            localStorage.removeItem('webhookx:lastSlug')
+            setErrorState('expired')
+          }
         }
       } finally {
         setLoading(false)
@@ -174,8 +179,9 @@ export default function DropPage() {
     try {
       await deleteDrop(dropSlug, tokenRef.current)
       localStorage.removeItem(`token:${dropSlug}`)
+      localStorage.removeItem('webhookx:lastSlug')
       cancelSSERef.current?.()
-      router.push('/')
+      window.location.href = '/'
     } catch { /* non-fatal */ }
   }
 
@@ -257,7 +263,7 @@ export default function DropPage() {
       <div className={styles.centered}>
         <p className={styles.sessionErrorTitle}>{error.title}</p>
         <p className={styles.sessionErrorMessage}>{error.message}</p>
-        <button onClick={() => router.push('/')} className={styles.backBtn}>
+        <button onClick={() => { window.location.href = '/' }} className={styles.backBtn}>
           Create a new drop
         </button>
       </div>
