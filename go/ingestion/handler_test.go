@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -17,12 +18,24 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// evalCall records a single call to MockRedisClient.Eval for assertion in tests.
+type evalCall struct {
+	keys []string
+	args []interface{}
+}
+
 // MockRedisClient is a simple mock for Redis
 type MockRedisClient struct {
-	addedMessages []util.WebhookMessage
-	shouldFail    bool
-	dropExists    bool
-	existsErr     error
+	addedMessages  []util.WebhookMessage
+	shouldFail     bool
+	dropExists     bool
+	existsErr      error
+	// Seeded starting values for rate-limit counters.
+	// Eval increments these and returns the new value.
+	lifetimeCounts map[string]int64
+	rateCounts     map[string]int64
+	evalCalls      []evalCall
+	evalErr        error
 }
 
 func (m *MockRedisClient) Exists(ctx context.Context, keys ...string) *redis.IntCmd {
@@ -40,13 +53,45 @@ func (m *MockRedisClient) Exists(ctx context.Context, keys ...string) *redis.Int
 }
 
 func (m *MockRedisClient) XAdd(ctx context.Context, args *redis.XAddArgs) *redis.StringCmd {
-	// Mock implementation - just return a dummy cmd
 	cmd := redis.NewStringCmd(ctx, "XADD")
 	if m.shouldFail {
 		cmd.SetVal("")
 		cmd.SetErr(redis.Nil)
 	} else {
 		cmd.SetVal("1234567890-0")
+	}
+	return cmd
+}
+
+func (m *MockRedisClient) Eval(ctx context.Context, script string, keys []string, args ...interface{}) *redis.Cmd {
+	m.evalCalls = append(m.evalCalls, evalCall{keys: keys, args: args})
+
+	cmd := redis.NewCmd(ctx, "eval")
+	if m.evalErr != nil {
+		cmd.SetErr(m.evalErr)
+		return cmd
+	}
+	if len(keys) == 0 {
+		cmd.SetVal(int64(1))
+		return cmd
+	}
+
+	if m.lifetimeCounts == nil {
+		m.lifetimeCounts = make(map[string]int64)
+	}
+	if m.rateCounts == nil {
+		m.rateCounts = make(map[string]int64)
+	}
+
+	key := keys[0]
+	if strings.HasSuffix(key, ":lifetime_count") {
+		m.lifetimeCounts[key]++
+		cmd.SetVal(m.lifetimeCounts[key])
+	} else if strings.HasSuffix(key, ":rate_window") {
+		m.rateCounts[key]++
+		cmd.SetVal(m.rateCounts[key])
+	} else {
+		cmd.SetVal(int64(1))
 	}
 	return cmd
 }
@@ -209,21 +254,102 @@ func TestPublicDropPost_RedisExistsError(t *testing.T) {
 	}
 }
 
-func TestPublicDropPost_RateLimited(t *testing.T) {
-	handler := newTestHandlerWithRedis(&MockRedisClient{dropExists: true})
+// TestRateLimit_LifetimeCap verifies that the 10,001st request is rejected with 429.
+func TestRateLimit_LifetimeCap(t *testing.T) {
+	slug := "lifeslug"
+	lifetimeKey := fmt.Sprintf("drop:%s:lifetime_count", slug)
 
-	// burst is 20 — the 21st request to the same slug should be rate limited
-	var lastCode int
-	for i := 0; i < 25; i++ {
-		req := httptest.NewRequest("POST", "/drop/rateslug", strings.NewReader(`{}`))
-		req.Header.Set("Content-Type", "application/json")
-		req = mux.SetURLVars(req, map[string]string{"url_slug": "rateslug"})
-		w := httptest.NewRecorder()
-		handler.PublicDropPost(w, req)
-		lastCode = w.Code
-		if w.Code == http.StatusTooManyRequests {
-			return
-		}
+	mock := &MockRedisClient{
+		dropExists:     true,
+		lifetimeCounts: map[string]int64{lifetimeKey: 10_000}, // next Eval returns 10_001
 	}
-	t.Errorf("expected 429 after burst exhausted, last code was %d", lastCode)
+	handler := newTestHandlerWithRedis(mock)
+
+	req := httptest.NewRequest("POST", "/drop/"+slug, strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	req = mux.SetURLVars(req, map[string]string{"url_slug": slug})
+
+	w := httptest.NewRecorder()
+	handler.PublicDropPost(w, req)
+
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 on lifetime cap, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "rate_limit_exceeded") {
+		t.Errorf("expected rate_limit_exceeded in body, got: %s", body)
+	}
+	if strings.Contains(body, "too quickly") {
+		t.Errorf("lifetime rejection must not use the rate-cap message, got: %s", body)
+	}
+	if w.Header().Get("Retry-After") != "" {
+		t.Errorf("lifetime cap must not set Retry-After header")
+	}
+}
+
+// TestRateLimit_SustainedRate verifies that the 101st request within one second is rejected with 429.
+func TestRateLimit_SustainedRate(t *testing.T) {
+	slug := "rateslug"
+	rateKey := fmt.Sprintf("drop:%s:rate_window", slug)
+
+	mock := &MockRedisClient{
+		dropExists: true,
+		rateCounts: map[string]int64{rateKey: 100}, // next Eval returns 101
+	}
+	handler := newTestHandlerWithRedis(mock)
+
+	req := httptest.NewRequest("POST", "/drop/"+slug, strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	req = mux.SetURLVars(req, map[string]string{"url_slug": slug})
+
+	w := httptest.NewRecorder()
+	handler.PublicDropPost(w, req)
+
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 on rate cap, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "rate_limit_exceeded") {
+		t.Errorf("expected rate_limit_exceeded in body, got: %s", body)
+	}
+	if !strings.Contains(body, "too quickly") {
+		t.Errorf("rate cap must use the 'too quickly' message, got: %s", body)
+	}
+	if w.Header().Get("Retry-After") != "1" {
+		t.Errorf("expected Retry-After: 1 on rate cap, got %q", w.Header().Get("Retry-After"))
+	}
+}
+
+// TestRateLimit_LifetimeCounter_MirrorsDopTTL verifies that the lifetime Lua script is called
+// with KEYS = [lifetimeKey, dropKey] so it can mirror the drop's TTL onto the counter.
+func TestRateLimit_LifetimeCounter_MirrorsDopTTL(t *testing.T) {
+	slug := "ttlslug"
+	mock := &MockRedisClient{dropExists: true}
+	handler := newTestHandlerWithRedis(mock)
+
+	req := httptest.NewRequest("POST", "/drop/"+slug, strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	req = mux.SetURLVars(req, map[string]string{"url_slug": slug})
+
+	w := httptest.NewRecorder()
+	handler.PublicDropPost(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if len(mock.evalCalls) < 1 {
+		t.Fatal("expected at least one Eval call for the lifetime script")
+	}
+	first := mock.evalCalls[0]
+	if len(first.keys) != 2 {
+		t.Fatalf("lifetime script must receive 2 keys, got %d: %v", len(first.keys), first.keys)
+	}
+	wantLifetimeKey := fmt.Sprintf("drop:%s:lifetime_count", slug)
+	wantDropKey := fmt.Sprintf("drop:%s", slug)
+	if first.keys[0] != wantLifetimeKey {
+		t.Errorf("KEYS[0] = %q, want %q", first.keys[0], wantLifetimeKey)
+	}
+	if first.keys[1] != wantDropKey {
+		t.Errorf("KEYS[1] = %q, want %q — drop key needed for TTL mirroring", first.keys[1], wantDropKey)
+	}
 }

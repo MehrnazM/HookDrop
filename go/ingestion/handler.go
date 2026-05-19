@@ -21,6 +21,7 @@ import (
 type RedisClient interface {
 	XAdd(ctx context.Context, args *redis.XAddArgs) *redis.StringCmd
 	Exists(ctx context.Context, keys ...string) *redis.IntCmd
+	Eval(ctx context.Context, script string, keys []string, args ...interface{}) *redis.Cmd
 	Ping(ctx context.Context) *redis.StatusCmd
 	Close() error
 }
@@ -28,15 +29,12 @@ type RedisClient interface {
 type Handler struct {
 	redisClient RedisClient
 	logger      *slog.Logger
-	rateLimiter *DropRateLimiter
 }
 
 func NewHandler(redis RedisClient, logger *slog.Logger) *Handler {
 	return &Handler{
 		redisClient: redis,
 		logger:      logger,
-		// 60 requests/minute per drop slug, burst of 20
-		rateLimiter: NewDropRateLimiter(1, 20),
 	}
 }
 
@@ -52,9 +50,23 @@ func (h *Handler) PublicDropPost(w http.ResponseWriter, r *http.Request) {
 
 	h.logger.Info("webhook received", "drop_slug", dropSlug, "method", r.Method, "path", r.RequestURI)
 
-	// Rate limit per drop slug (60 req/min, burst 20).
-	if !h.rateLimiter.Allow(dropSlug) {
-		http.Error(w, `{"error":"rate_limited","message":"Too many requests"}`, http.StatusTooManyRequests)
+	// Rate limit checks (lifetime cap, then sliding-window rate cap).
+	outcome, err := checkLimits(r.Context(), h.redisClient, dropSlug)
+	if err != nil {
+		h.logger.Error("rate limit check failed", "drop_slug", dropSlug, "err", err)
+		// fail open: a transient Redis error should not block ingestion
+	}
+	switch outcome {
+	case rateLimitLifetime:
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusTooManyRequests)
+		w.Write([]byte(`{"error":"rate_limit_exceeded","message":"Drop has reached its request limit. Create a new Drop to continue."}`))
+		return
+	case rateLimitRate:
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Retry-After", "1")
+		w.WriteHeader(http.StatusTooManyRequests)
+		w.Write([]byte(`{"error":"rate_limit_exceeded","message":"Drop is receiving requests too quickly. Slow down or create a new Drop."}`))
 		return
 	}
 
