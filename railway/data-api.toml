@@ -1,5 +1,5 @@
 [build]
-  dockerfilePath = "docker/data-api/Dockerfile"
+  dockerfilePath = "../docker/data-api/Dockerfile"
 
 [deploy]
   releaseCommand = "/data-api migrate"
