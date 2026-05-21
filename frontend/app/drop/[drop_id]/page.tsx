@@ -278,9 +278,13 @@ export default function DropPage() {
     <div className={styles.page}>
       {/* Top bar */}
       <div className={styles.topbar}>
-        <span className={styles.logo}>
+        <button
+          className={styles.logo}
+          onClick={() => router.push('/')}
+          aria-label="Back to home"
+        >
           webhook<span className={styles.logoAccent}>x</span>
-        </span>
+        </button>
         <div className={styles.urlBar}>
           <div className={styles.pulse} aria-hidden="true" />
           <span className={styles.urlText}>{webhookUrl}</span>
