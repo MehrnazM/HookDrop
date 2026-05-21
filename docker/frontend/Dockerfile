@@ -26,4 +26,7 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
+# Verify server.js exists and is executable
+RUN ls -la /app/server.js || (echo "server.js not found!" && exit 1)
+
 CMD ["node", "server.js"]
