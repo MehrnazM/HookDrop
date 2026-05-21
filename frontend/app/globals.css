@@ -555,7 +555,7 @@ section.block {
 }
 .reel-bar:hover .reel-bar-track,
 .reel-bar.current .reel-bar-track { height: 4px; }
-.reel-bar-track .fill { height: 100%; background: var(--accent); width: 0%; transition: width .1s linear; }
+.reel-bar-track .fill { height: 100%; background: var(--accent); width: 0%; }
 .reel-bar.complete .reel-bar-track .fill { width: 100%; background: var(--text-faint); }
 
 /* Reel step visuals */
