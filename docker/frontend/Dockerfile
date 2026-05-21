@@ -9,7 +9,6 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY frontend/ .
 ENV NODE_ENV=production
 ENV NEXT_PUBLIC_API_URL=https://data-api-production-575e.up.railway.app
-ENV NEXT_PUBLIC_INGESTION_URL=https://ingestion-production-6bec.up.railway.app
 ENV NEXT_PUBLIC_SSE_URL=https://processor-production-6c1e.up.railway.app
 RUN npm run build
 

@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
                    process.env.DATA_API_URL ||
                    "https://data-api-production-575e.up.railway.app";
 
+    const ingestionUrl = process.env.NEXT_INGESTION_URL ||
+                         "https://ingestion-production-6bec.up.railway.app";
+
     return {
       beforeFiles: [],
       afterFiles: [],
@@ -15,6 +18,10 @@ const nextConfig: NextConfig = {
         {
           source: "/api/:path*",
           destination: `${apiUrl}/api/:path*`,
+        },
+        {
+          source: "/webhook/:path*",
+          destination: `${ingestionUrl}/drop/:path*`,
         },
       ],
     };

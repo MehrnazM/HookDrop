@@ -10,7 +10,6 @@ import SkeletonDetail from '@/components/SkeletonDetail'
 import TTLCountdown from '@/components/TTLCountdown'
 import styles from './page.module.css'
 
-const INGESTION_BASE = process.env.NEXT_PUBLIC_INGESTION_URL ?? 'http://localhost:8080'
 const PAGE_LIMIT = 20
 
 export default function DropPage() {
@@ -37,7 +36,9 @@ export default function DropPage() {
   const tokenRef = useRef<string>('')
   const cancelSSERef = useRef<(() => void) | null>(null)
 
-  const webhookUrl = `${INGESTION_BASE}/drop/${dropSlug}`
+  const webhookUrl = typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.host}/webhook/${dropSlug}`
+    : `/webhook/${dropSlug}`
   const hasMore = events.length < totalCount
 
   // ── Initial load ────────────────────────────────────────────────
