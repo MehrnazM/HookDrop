@@ -1,4 +1,4 @@
-module github.com/mehrnazm/webhookx/go/util
+module github.com/mehrnazm/hookdrop/go/util
 
 go 1.26.2
 

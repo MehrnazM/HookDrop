@@ -22,7 +22,7 @@ const lanePoint = (t: number, sy: number) => {
   }
 }
 
-const IN_DUR   = 3200   // ms — how long a particle takes to reach WebhookX
+const IN_DUR   = 3200   // ms — how long a particle takes to reach HookDrop
 const OUT_DUR  = 2600   // ms — how long a particle takes to reach inspector
 const SPAWN_MS = 2000   // ms between new particles
 
@@ -64,7 +64,7 @@ function LiveWire() {
       <span className="livewire-label lw-src s1">stripe.com</span>
       <span className="livewire-label lw-src s2">github.com</span>
       <span className="livewire-label lw-src s3">shopify.com</span>
-      <span className="livewire-label lw-center">WebhookX</span>
+      <span className="livewire-label lw-center">HookDrop</span>
       <span className="livewire-label lw-dst">your inspector</span>
 
       <svg className="livewire-svg" preserveAspectRatio="none" viewBox="0 0 1000 220">
@@ -93,7 +93,7 @@ function LiveWire() {
           />
         ))}
 
-        {/* Output lane — right edge of WebhookX → left edge of inspector */}
+        {/* Output lane — right edge of HookDrop → left edge of inspector */}
         <path d="M 545 110 L 862 110" stroke="url(#laneGradOut)" strokeWidth="1.5" fill="none" />
 
         {/* Positions driven by RAF — bezier for 'in', linear for 'out' */}
@@ -102,14 +102,14 @@ function LiveWire() {
           const elapsed = now - p.born
 
           if (p.phase === 'in') {
-            // easeOut: decelerates smoothly into WebhookX, never stalls before arrival
+            // easeOut: decelerates smoothly into HookDrop, never stalls before arrival
             const t = easeOut(Math.min(elapsed / IN_DUR, 1))
             const { x: cx, y: cy } = lanePoint(t, sy)
             const opacity = Math.min(elapsed / 200, 1)
             return <circle key={p.id} r="3.5" cx={cx} cy={cy} opacity={opacity} className="lw-particle" />
           }
 
-          // easeIn: accelerates away from WebhookX toward inspector
+          // easeIn: accelerates away from HookDrop toward inspector
           const t = easeIn(Math.min(elapsed / OUT_DUR, 1))
           const cx = 545 + (860 - 545) * t
           const opacity = elapsed > OUT_DUR * 0.75
@@ -141,7 +141,7 @@ function LiveCounter() {
 
 // ── Demo reel ────────────────────────────────────────────────
 function TypedURL() {
-  const full = 'webhookx.io/drop/k9p3mz'
+  const full = 'hookdrop.io/drop/k9p3mz'
   const [n, setN] = useState(0)
   useEffect(() => {
     setN(0)
@@ -205,7 +205,7 @@ function DemoReel() {
           <div className="step-visual">
             <div className="url-card">
               <span className="live-dot" />
-              <span className="url-string"><span className="muted">webhookx.io/drop/</span>k9p3mz</span>
+              <span className="url-string"><span className="muted">hookdrop.io/drop/</span>k9p3mz</span>
               <span className="copy-bubble">Copied!</span>
             </div>
           </div>
@@ -224,7 +224,7 @@ function DemoReel() {
               <div className="svc-field">
                 {step === 1
                   ? <TypedURL key={step} />
-                  : <span style={{ color: 'var(--text-muted)' }}>webhookx.io/drop/k9p3mz</span>
+                  : <span style={{ color: 'var(--text-muted)' }}>hookdrop.io/drop/k9p3mz</span>
                 }
               </div>
             </div>
@@ -563,7 +563,7 @@ export default function HomePage() {
           <span className="label-tag">Free · No signup · Expires in 24h</span>
           <h1>Drop URL.<br />Catch payloads.<br /><span className="accent">Move on.</span></h1>
           <p className="lede">
-            WebhookX is a zero-config webhook receiver. Get a live URL in one click, point any service at it, and watch every request land in real time.
+            HookDrop is a zero-config webhook receiver. Get a live URL in one click, point any service at it, and watch every request land in real time.
           </p>
           <div className="hero-ctas">
             <CreateBtn />
@@ -628,7 +628,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="compare-card after">
-                <h3>With WebhookX</h3>
+                <h3>With HookDrop</h3>
                 <p className="tagline">Just a URL. And a screen.</p>
                 <ol className="compare-steps">
                   <li><span className="n">01</span>Click <code>Get a Drop URL</code>.</li>
@@ -651,7 +651,7 @@ export default function HomePage() {
             <div className="section-head">
               <span className="label-tag">Preview · static payloads</span>
               <h2>A peek inside the inspector. <span className="light">Before you wire anything up.</span></h2>
-              <p>Canned payloads shaped like the real thing from services you&apos;ll point at WebhookX. Click around to see how the inspector handles each one — then grab a Drop URL above for the live version.</p>
+              <p>Canned payloads shaped like the real thing from services you&apos;ll point at HookDrop. Click around to see how the inspector handles each one — then grab a Drop URL above for the live version.</p>
             </div>
           </Reveal>
           <Reveal delay={150}>
@@ -733,7 +733,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="lp-footer">
         <div className="footer-inner">
-          <div>WebhookX · Free while in beta · Built for developers</div>
+          <div>HookDrop · Free while in beta · Built for developers</div>
           <div>
             <a href="#">Docs</a>
             <a href="#">GitHub</a>

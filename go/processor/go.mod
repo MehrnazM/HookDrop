@@ -1,10 +1,10 @@
-module github.com/mehrnazm/webhookx/go/processor
+module github.com/mehrnazm/hookdrop/go/processor
 
 go 1.26.2
 
 require (
 	github.com/lib/pq v1.12.3
-	github.com/mehrnazm/webhookx/go/util v0.0.0-00010101000000-000000000000
+	github.com/mehrnazm/hookdrop/go/util v0.0.0-00010101000000-000000000000
 	github.com/redis/go-redis/v9 v9.19.0
 	github.com/stretchr/testify v1.3.0
 	golang.org/x/crypto v0.51.0
@@ -23,4 +23,4 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 )
 
-replace github.com/mehrnazm/webhookx/go/util => ../util
+replace github.com/mehrnazm/hookdrop/go/util => ../util

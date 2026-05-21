@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"time"
 
-	util "github.com/mehrnazm/webhookx/go/util"
+	util "github.com/mehrnazm/hookdrop/go/util"
 	"golang.org/x/crypto/bcrypt"
 )
 

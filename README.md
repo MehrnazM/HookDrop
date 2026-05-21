@@ -1,8 +1,8 @@
-# WebhookX
+# HookDrop
 
 A developer-first webhook debugger built for the full dev-to-prod lifecycle.
 
-WebhookX gives you an instant, anonymous webhook receiver — called a **Drop** — with zero signup required. Point any third-party service (Stripe, GitHub, Shopify, Twilio) at your Drop URL and inspect every request in real time.
+HookDrop gives you an instant, anonymous webhook receiver — called a **Drop** — with zero signup required. Point any third-party service (Stripe, GitHub, Shopify, Twilio) at your Drop URL and inspect every request in real time.
 
 ---
 
@@ -14,13 +14,13 @@ A Drop is a unique, temporary webhook endpoint that captures everything sent to 
 - Lives for 24 hours
 - Receives any HTTP method, any headers, any payload up to 1MB
 - Streams incoming requests to your browser in real time via SSE
-- Lets you inspect request body, headers, query params, and the response WebhookX sent back
+- Lets you inspect request body, headers, query params, and the response HookDrop sent back
 
 ---
 
 ## Architecture
 
-WebhookX is built as four independent services:
+HookDrop is built as four independent services:
 
 ```
 Third-party service (Stripe, GitHub, etc.)
@@ -90,8 +90,8 @@ Third-party service (Stripe, GitHub, etc.)
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/MehrnazM/WebhookX.git
-cd WebhookX
+git clone https://github.com/MehrnazM/HookDrop.git
+cd HookDrop
 ```
 
 ### 2. Set up environment variables

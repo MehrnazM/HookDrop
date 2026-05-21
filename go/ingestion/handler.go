@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	util "github.com/mehrnazm/webhookx/go/util"
+	util "github.com/mehrnazm/hookdrop/go/util"
 	"github.com/redis/go-redis/v9"
 )
 

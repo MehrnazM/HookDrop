@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	util "github.com/mehrnazm/webhookx/go/util"
+	util "github.com/mehrnazm/hookdrop/go/util"
 )
 
 const (

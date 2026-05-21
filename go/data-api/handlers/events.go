@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	dbpkg "github.com/mehrnazm/webhookx/go/data-api/db"
+	dbpkg "github.com/mehrnazm/hookdrop/go/data-api/db"
 )
 
 func (h *Handler) ListEvents(c *gin.Context) {

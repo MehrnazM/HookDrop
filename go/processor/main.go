@@ -10,7 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
-	util "github.com/mehrnazm/webhookx/go/util"
+	util "github.com/mehrnazm/hookdrop/go/util"
 )
 
 const (

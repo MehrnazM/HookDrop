@@ -4,7 +4,7 @@ import (
 	"io"
 	"net/http"
 
-	util "github.com/mehrnazm/webhookx/go/util"
+	util "github.com/mehrnazm/hookdrop/go/util"
 )
 
 const MaxPayloadSize = 1 * 1024 * 1024 // 1MB

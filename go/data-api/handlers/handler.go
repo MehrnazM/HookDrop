@@ -4,7 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/redis/go-redis/v9"
-	dbpkg "github.com/mehrnazm/webhookx/go/data-api/db"
+	dbpkg "github.com/mehrnazm/hookdrop/go/data-api/db"
 )
 
 type Handler struct {

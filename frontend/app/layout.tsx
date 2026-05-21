@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "WebhookX — Drop Inspector",
+  title: "HookDrop — Drop Inspector",
   description: "Inspect incoming webhooks in real time",
 };
 

@@ -1,4 +1,4 @@
-module github.com/mehrnazm/webhookx/go/data-api
+module github.com/mehrnazm/hookdrop/go/data-api
 
 go 1.26.2
 
@@ -30,7 +30,7 @@ require (
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/lib/pq v1.12.3
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mehrnazm/webhookx/go/util v0.0.0-00010101000000-000000000000
+	github.com/mehrnazm/hookdrop/go/util v0.0.0-00010101000000-000000000000
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
@@ -47,4 +47,4 @@ require (
 	google.golang.org/protobuf v1.36.10 // indirect
 )
 
-replace github.com/mehrnazm/webhookx/go/util => ../util
+replace github.com/mehrnazm/hookdrop/go/util => ../util

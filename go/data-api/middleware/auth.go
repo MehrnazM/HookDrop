@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	dbpkg "github.com/mehrnazm/webhookx/go/data-api/db"
+	dbpkg "github.com/mehrnazm/hookdrop/go/data-api/db"
 	"golang.org/x/crypto/bcrypt"
 )
 

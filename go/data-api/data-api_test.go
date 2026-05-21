@@ -15,9 +15,9 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 
-	dbpkg "github.com/mehrnazm/webhookx/go/data-api/db"
-	"github.com/mehrnazm/webhookx/go/data-api/handlers"
-	"github.com/mehrnazm/webhookx/go/data-api/middleware"
+	dbpkg "github.com/mehrnazm/hookdrop/go/data-api/db"
+	"github.com/mehrnazm/hookdrop/go/data-api/handlers"
+	"github.com/mehrnazm/hookdrop/go/data-api/middleware"
 )
 
 func setupRouter(db *sql.DB, rc *redis.Client) *gin.Engine {

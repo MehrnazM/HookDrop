@@ -15,10 +15,10 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
-	dbpkg "github.com/mehrnazm/webhookx/go/data-api/db"
-	"github.com/mehrnazm/webhookx/go/data-api/handlers"
-	"github.com/mehrnazm/webhookx/go/data-api/middleware"
-	util "github.com/mehrnazm/webhookx/go/util"
+	dbpkg "github.com/mehrnazm/hookdrop/go/data-api/db"
+	"github.com/mehrnazm/hookdrop/go/data-api/handlers"
+	"github.com/mehrnazm/hookdrop/go/data-api/middleware"
+	util "github.com/mehrnazm/hookdrop/go/util"
 )
 
 const (
