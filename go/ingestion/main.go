@@ -48,7 +48,7 @@ func main() {
 
 	handler := NewHandler(redisClient, logger)
 	router.HandleFunc("/drop/{url_slug}", handler.PublicDropPost).Methods("POST", "GET", "PUT", "PATCH", "DELETE")
-	router.HandleFunc("/healthz", Health)
+	router.HandleFunc("/healthz", Health).Methods("GET")
 
 	// Start HTTP server
 	serverErrors := make(chan error, 1)

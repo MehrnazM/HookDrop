@@ -16,7 +16,6 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-
 // RedisClient interface defines the methods we use from redis.Client
 type RedisClient interface {
 	XAdd(ctx context.Context, args *redis.XAddArgs) *redis.StringCmd
@@ -39,7 +38,9 @@ func NewHandler(redis RedisClient, logger *slog.Logger) *Handler {
 }
 
 func Health(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"ok"}`))
 }
 
 // PublicDropPost handles POST /drop/:url_slug
