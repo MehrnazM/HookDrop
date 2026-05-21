@@ -127,7 +127,7 @@ func main() {
 	router.Use(gin.Recovery())
 
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000", "https://webhookx.io"},
+		AllowOrigins:     []string{"http://localhost:3000", "frontend-production-7f6d.up.railway.app"},
 		AllowMethods:     []string{"GET", "POST", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Authorization", "Content-Type"},
 		AllowCredentials: true,
