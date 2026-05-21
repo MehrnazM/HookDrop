@@ -14,8 +14,4 @@ RUN apk --no-cache add ca-certificates tzdata
 COPY --from=builder /app/go/data-api/data-api /data-api
 COPY postgres/migrations /postgres/migrations
 EXPOSE 8081
-
-# Create a startup script that runs migrations before starting the app
-RUN echo '#!/bin/sh\n/data-api migrate\n/data-api' > /start.sh && chmod +x /start.sh
-
-CMD ["/start.sh"]
+ENTRYPOINT ["/data-api"]
