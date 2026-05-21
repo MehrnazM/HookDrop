@@ -69,8 +69,14 @@ func main() {
 	case sig := <-shutdown:
 		logger.Info("shutdown initiated", "signal", sig)
 
+		// Cancel background context to stop all goroutines
+		cancelBackgroundCtx()
+
+		// Give goroutines time to exit gracefully
+		time.Sleep(1 * time.Second)
+
 		// Graceful HTTP shutdown
-		shutdownCtx, cancel := context.WithTimeout(ctx, shutdownTimeout)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()
 
 		if err := server.Shutdown(shutdownCtx); err != nil {
