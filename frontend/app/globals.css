@@ -183,13 +183,32 @@ body::before {
 }
 .brand {
   font-family: var(--sans);
-  font-weight: 600;
-  font-size: 18px;
-  letter-spacing: -0.02em;
-  color: var(--text);
+  font-weight: 700;
+  font-size: 19px;
+  letter-spacing: -0.03em;
   user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 0;
 }
-.brand .x { color: var(--accent); }
+.brand-hook {
+  color: var(--text);
+}
+.brand-drop {
+  color: var(--accent);
+  position: relative;
+}
+.brand-drop::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 100%;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+  opacity: 0.5;
+}
 .live-counter {
   display: inline-flex;
   align-items: center;
