@@ -52,7 +52,7 @@ export default function RequestList({
   }
 
   if (events.length === 0) {
-    const curlCommand = `curl -X POST ${webhookUrl} \\\n  -H "Content-Type: application/json" \\\n  -d '{"hello": "webhookx"}'`
+    const curlCommand = `curl -X POST ${webhookUrl} \\\n  -H "Content-Type: application/json" \\\n  -d '{"hello": "hookdrop"}'`
 
     return (
       <div className={styles.empty}>

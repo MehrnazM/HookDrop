@@ -372,7 +372,7 @@ const SOURCES: Source[] = [
   { id: 'slack',   name: 'Slack',   initial: 'S', method: 'POST', path: '/drop/k9p3mz/slack',   body: { event: { type: 'app_mention', user: 'U05ABCD123', text: '<@U07XYZ> ship it', channel: 'C03DEV001' }, event_id: 'Ev09BC4M2X' } },
   { id: 'twilio',  name: 'Twilio',  initial: 'T', method: 'POST', path: '/drop/k9p3mz/twilio',  body: { MessageStatus: 'delivered', MessageSid: 'SM7e0c2f1d4a5b6e9a1', To: '+15550009999', From: '+15551112222' } },
   { id: 'linear',  name: 'Linear',  initial: 'L', method: 'POST', path: '/drop/k9p3mz/linear',  body: { action: 'create', type: 'Issue', data: { title: 'Webhook timeout on retry', state: 'In Progress', priority: 2 } } },
-  { id: 'vercel',  name: 'Vercel',  initial: 'V', method: 'POST', path: '/drop/k9p3mz/vercel',  body: { type: 'deployment.succeeded', deployment: { url: 'webhookx-7gx4.vercel.app', meta: { branch: 'main', commit: 'a3f9bc7' } } } },
+  { id: 'vercel',  name: 'Vercel',  initial: 'V', method: 'POST', path: '/drop/k9p3mz/vercel',  body: { type: 'deployment.succeeded', deployment: { url: 'hookdrop-7gx4.vercel.app', meta: { branch: 'main', commit: 'a3f9bc7' } } } },
 ]
 
 function highlightVal(v: unknown, depth = 0): React.ReactNode {
@@ -506,7 +506,7 @@ export default function HomePage() {
     try {
       const drop = await createDrop()
       localStorage.setItem(`token:${drop.url_slug}`, drop.session_token)
-      localStorage.setItem('webhookx:lastSlug', drop.url_slug)
+      localStorage.setItem('hookdrop:lastSlug', drop.url_slug)
       router.push(`/drop/${drop.url_slug}`)
     } catch {
       setError('Failed to create a drop. Is the server running?')
@@ -516,7 +516,7 @@ export default function HomePage() {
 
   const handleOpenDashboard = useCallback(async () => {
     if (loading) return
-    const slug = localStorage.getItem('webhookx:lastSlug')
+    const slug = localStorage.getItem('hookdrop:lastSlug')
     if (slug) {
       router.push(`/drop/${slug}`)
       return
@@ -527,7 +527,7 @@ export default function HomePage() {
     try {
       const drop = await createDrop()
       localStorage.setItem(`token:${drop.url_slug}`, drop.session_token)
-      localStorage.setItem('webhookx:lastSlug', drop.url_slug)
+      localStorage.setItem('hookdrop:lastSlug', drop.url_slug)
       router.push(`/drop/${drop.url_slug}`)
     } catch {
       setError('Failed to create a drop. Is the server running?')

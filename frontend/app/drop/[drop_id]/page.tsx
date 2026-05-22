@@ -58,11 +58,11 @@ export default function DropPage() {
       } catch (err: unknown) {
         if (err instanceof Error) {
           if (err.message === 'DROP_NOT_FOUND') {
-            localStorage.removeItem('webhookx:lastSlug')
+            localStorage.removeItem('hookdrop:lastSlug')
             setErrorState('not_found')
           } else if (err.message === 'TOKEN_EMPTY') setErrorState('no_token')
           else if (err.message === 'TOKEN_EXPIRED') {
-            localStorage.removeItem('webhookx:lastSlug')
+            localStorage.removeItem('hookdrop:lastSlug')
             setErrorState('expired')
           }
         }
@@ -180,7 +180,7 @@ export default function DropPage() {
     try {
       await deleteDrop(dropSlug, tokenRef.current)
       localStorage.removeItem(`token:${dropSlug}`)
-      localStorage.removeItem('webhookx:lastSlug')
+      localStorage.removeItem('hookdrop:lastSlug')
       cancelSSERef.current?.()
       window.location.href = '/'
     } catch { /* non-fatal */ }
