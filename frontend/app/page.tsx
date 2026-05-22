@@ -545,7 +545,7 @@ export default function HomePage() {
     <main style={{ position: 'relative', zIndex: 1 }}>
       <nav className="lp-nav">
         <div className="nav-inner">
-          <div className="brand">Webhook<span className="x">X</span></div>
+          <div className="brand">HookDrop</div>
           <div className="nav-right">
             <span className="beta-pill"><span className="beta-dot" /> beta</span>
             {/* <LiveCounter /> */}

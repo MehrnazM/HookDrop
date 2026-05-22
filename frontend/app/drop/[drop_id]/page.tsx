@@ -283,7 +283,7 @@ export default function DropPage() {
           onClick={() => router.push('/')}
           aria-label="Back to home"
         >
-          webhook<span className={styles.logoAccent}>x</span>
+          HookDrop
         </button>
         <div className={styles.urlBar}>
           <div className={styles.pulse} aria-hidden="true" />
